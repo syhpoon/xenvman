@@ -9,7 +9,7 @@
 cmd/xenvman
 repos/
 
-main.go
+tmp.go
 
 # Test binary, build with `go test -c`
 *.test
