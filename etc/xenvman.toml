@@ -1,0 +1,8 @@
+[api]
+listen = ":9876"
+
+[[repo]]
+type = "shell"
+name = "shell-repo"
+dirs = ["../repos/shell"]
+provider-file-prefix = "provider-"
