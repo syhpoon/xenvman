@@ -27,7 +27,7 @@ package repo
 import "fmt"
 
 type Repo interface {
-	Provision(name string, params ImageParams) (ProvisionedImage, error)
+	Provision(provider string, params ImageParams) (ProvisionedImage, error)
 
 	fmt.Stringer
 }

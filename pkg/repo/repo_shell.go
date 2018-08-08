@@ -35,6 +35,8 @@ import (
 
 	"encoding/json"
 
+	"bytes"
+
 	"github.com/pkg/errors"
 	"github.com/syhpoon/xenvman/pkg/logger"
 )
@@ -137,7 +139,7 @@ func (sr *ShellRepo) Provision(name string,
 	cmd := fmt.Sprintf("%s provision %s", provider, strings.Join(buf, " "))
 
 	// Execute `provision` command
-	outBytes, err := exec.Command(cmd).Output()
+	outBytes, err := exec.Command("/bin/sh", "-c", cmd).Output()
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "Error executing provider %s", name)
@@ -177,11 +179,11 @@ func parseBuild(script string, lines []string) (ProvisionedImage, error) {
 			"docker build context", script)
 	}
 
-	buf, err := base64.StdEncoding.DecodeString(lines[1])
+	buf, err := base64.StdEncoding.DecodeString(lines[0])
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "%s: Error decoding base64", script)
 	}
 
-	return &BuildImage{BuildContext: buf}, nil
+	return &BuildImage{BuildContext: bytes.NewBuffer(buf)}, nil
 }

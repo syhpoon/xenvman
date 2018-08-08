@@ -4,5 +4,6 @@ listen = ":9876"
 [[repo]]
 type = "shell"
 name = "shell-repo"
-dirs = ["../repos/shell"]
+dirs = ["/home/syhpoon/UNIX/Devel/go/src/github.com/syhpoon/xenvman/repos/shell"]
 provider-file-prefix = "provider-"
+

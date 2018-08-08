@@ -30,22 +30,24 @@ import (
 	"sync"
 	"time"
 
+	"encoding/json"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/syhpoon/xenvman/pkg/conteng"
 	"github.com/syhpoon/xenvman/pkg/logger"
 	"github.com/syhpoon/xenvman/pkg/repo"
-	"encoding/json"
-	"io/ioutil"
 )
 
-var serverLog = logger.GetLogger("xenvman.cmd.api")
+var serverLog = logger.GetLogger("xenvman.pkg.api.server")
 
 type ServerParams struct {
 	Listener     net.Listener
 	WriteTimeout time.Duration
 	ReadTimeout  time.Duration
 	Repos        map[string]repo.Repo
+	ContEng      conteng.ContainerEngine
 	Ctx          context.Context
 }
 
@@ -61,6 +63,9 @@ type Server struct {
 	router *mux.Router
 	server http.Server
 	params ServerParams
+	repos  map[string]repo.Repo
+	envs   map[string]*Env
+	sync.RWMutex
 }
 
 func NewServer(params ServerParams) *Server {
@@ -74,6 +79,8 @@ func NewServer(params ServerParams) *Server {
 			ReadTimeout:  params.ReadTimeout,
 		},
 		params: params,
+		repos:  params.Repos,
+		envs:   map[string]*Env{},
 	}
 }
 
@@ -110,9 +117,47 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 
 	body, err := ioutil.ReadAll(req.Body)
 
-	_ = err
+	if err != nil {
+		serverLog.Errorf("Error reading request body: %s", err)
+
+		ApiReply(w, http.StatusBadRequest, "Error reading request body: %s", err)
+
+		return
+	}
 
 	edef := envDef{}
 
-	err = json.Unmarshal(body, &edef)
+	if err = json.Unmarshal(body, &edef); err != nil {
+		serverLog.Errorf("Error decoding request body: %s", err)
+
+		ApiReply(w, http.StatusBadRequest, "Error decoding request body: %s", err)
+
+		return
+	}
+
+	if validErr := edef.Validate(); validErr != nil {
+		serverLog.Errorf("Error validating request body: %s", validErr)
+
+		ApiReply(w, http.StatusBadRequest, "Error validating request body: %s",
+			validErr)
+
+		return
+	}
+
+	env, err := NewEnv(&edef, s.params.ContEng, s.repos)
+
+	if err != nil {
+		serverLog.Errorf("Error creating env: %s", err)
+
+		ApiReply(w, http.StatusBadRequest, "Error creating env: %s", err)
+
+		return
+	}
+
+	s.Lock()
+	s.envs[env.Id] = env
+	s.Unlock()
+
+	//TODO: Return the entire env structure
+	ApiReply(w, http.StatusOK, env.Id)
 }

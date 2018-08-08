@@ -22,26 +22,14 @@
  SOFTWARE.
 */
 
-package repo
+package conteng
 
 import "io"
 
-type ImageParams = map[string]interface{}
+type NetworkId = string
 
-type ProvisionedImage interface {
-	IsProvisionedImage()
+type ContainerEngine interface {
+	CreateNetwork(name string) (NetworkId, error)
+	BuildImage(tag string, buildContext io.Reader) error
+	Terminate()
 }
-
-type BuildImage struct {
-	// Tar-gzipped directory including Dockerfile and all additional image files
-	BuildContext io.Reader
-}
-
-func (b *BuildImage) IsProvisionedImage() {}
-
-type FetchImage struct {
-	Repo string
-	Tag  string
-}
-
-func (f *FetchImage) IsProvisionedImage() {}

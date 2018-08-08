@@ -21,27 +21,15 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
 */
+package lib
 
-package repo
+import (
+	"strings"
 
-import "io"
+	"github.com/satori/go.uuid"
+)
 
-type ImageParams = map[string]interface{}
-
-type ProvisionedImage interface {
-	IsProvisionedImage()
+// Generate new random ID based on UUID v4
+func NewId() string {
+	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
 }
-
-type BuildImage struct {
-	// Tar-gzipped directory including Dockerfile and all additional image files
-	BuildContext io.Reader
-}
-
-func (b *BuildImage) IsProvisionedImage() {}
-
-type FetchImage struct {
-	Repo string
-	Tag  string
-}
-
-func (f *FetchImage) IsProvisionedImage() {}

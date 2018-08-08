@@ -33,11 +33,14 @@ import (
 
 	"os/signal"
 
+	"fmt"
+
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/syhpoon/xenvman/pkg/api"
 	"github.com/syhpoon/xenvman/pkg/config"
+	"github.com/syhpoon/xenvman/pkg/conteng"
 	"github.com/syhpoon/xenvman/pkg/logger"
 	"github.com/syhpoon/xenvman/pkg/repo"
 )
@@ -64,9 +67,17 @@ var apiRunCmd = &cobra.Command{
 		if repos, err := parseRepos(); err != nil {
 			apiLog.Errorf("Error parsing repos: %+v", err)
 
+			cancel()
+
 			return
 		} else {
 			apiParams.Repos = repos
+		}
+
+		if contEng, err := buildContEng(ctx); err != nil {
+			apiLog.Errorf("Error building container engine: %s", err)
+		} else {
+			apiParams.ContEng = contEng
 		}
 
 		listener, err := net.Listen("tcp", config.GetString("api.listen"))
@@ -88,6 +99,23 @@ var apiRunCmd = &cobra.Command{
 
 		wait(ctx, cancel, wg)
 	},
+}
+
+func buildContEng(ctx context.Context) (conteng.ContainerEngine, error) {
+	ceng := config.GetString("api.container-engine")
+
+	switch ceng {
+	case "docker":
+		apiLog.Infof("Using Docker container engine")
+
+		params := conteng.DockerEngineParams{
+			Ctx: ctx,
+		}
+
+		return conteng.NewDockerEngine(params)
+	default:
+		return nil, fmt.Errorf("Unknown container engine: %s", ceng)
+	}
 }
 
 func wait(ctx context.Context, cancel func(), wg *sync.WaitGroup) {

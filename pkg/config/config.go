@@ -80,7 +80,6 @@ func InitConfig(path string) error {
 	return nil
 }
 
-// Return a string value
 func GetString(key string) string {
 	return viper.GetString(key)
 }

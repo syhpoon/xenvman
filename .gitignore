@@ -9,7 +9,9 @@
 cmd/xenvman
 repos/
 
-tmp.go
+tmp/
+CALL.json
+EXAMPLE.json
 
 # Test binary, build with `go test -c`
 *.test
