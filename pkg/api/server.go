@@ -147,7 +147,7 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 	env, err := NewEnv(&edef, s.params.ContEng, s.repos)
 
 	if err != nil {
-		serverLog.Errorf("Error creating env: %s", err)
+		serverLog.Errorf("Error creating env: %+v", err)
 
 		ApiReply(w, http.StatusBadRequest, "Error creating env: %s", err)
 

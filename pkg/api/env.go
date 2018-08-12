@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/syhpoon/xenvman/pkg/conteng"
 	"github.com/syhpoon/xenvman/pkg/lib"
 	"github.com/syhpoon/xenvman/pkg/logger"
@@ -89,25 +90,23 @@ func NewEnv(ed *envDef, ceng conteng.ContainerEngine,
 
 	id := newEnvId(ed.Name)
 
-	images := map[string]repo.ProvisionedImage{}
+	pimages := map[string]repo.ProvisionedImage{}
 	imagesToBuild := map[string]*repo.BuildImage{}
+	name2tag := map[string]string{}
 
 	// First provision images
 	for _, imDef := range ed.Images {
 		rep, ok := repos[imDef.Repo]
 
 		if !ok {
-			envLog.Errorf("Unknown repo: %s", imDef.Repo)
-
-			return nil, fmt.Errorf("Unknown repo: %s", imDef.Repo)
+			return nil, errors.Errorf("Unknown repo: %s", imDef.Repo)
 		}
 
 		img, err := rep.Provision(imDef.Provider, imDef.Parameters)
 
 		if err != nil {
-			envLog.Errorf("Error provisioning image %+v: %s", imDef, err)
-
-			return nil, fmt.Errorf("Error provisioning image %s: %s", imDef.Name, err)
+			return nil, errors.Wrapf(err, "Error provisioning image %s",
+				imDef.Name)
 		} else {
 			name := imDef.Name
 
@@ -118,7 +117,8 @@ func NewEnv(ed *envDef, ceng conteng.ContainerEngine,
 			tag := fmt.Sprintf("xenv-%s-%s:%s-%s", imDef.Repo, imDef.Provider,
 				name, id)
 
-			images[tag] = img
+			pimages[tag] = img
+			name2tag[imDef.Name] = tag
 
 			switch i := img.(type) {
 			case *repo.BuildImage:
@@ -126,9 +126,7 @@ func NewEnv(ed *envDef, ceng conteng.ContainerEngine,
 			case *repo.FetchImage:
 				//TODO
 			default:
-				envLog.Errorf("Unknown provisioned image type: %T", i)
-
-				return nil, fmt.Errorf("Uknown provisioned image type: %T", i)
+				return nil, errors.Errorf("Uknown provisioned image type: %T", i)
 			}
 		}
 	}
@@ -137,28 +135,35 @@ func NewEnv(ed *envDef, ceng conteng.ContainerEngine,
 	for tag, img := range imagesToBuild {
 		//TODO: Run in parallel
 		if err := ceng.BuildImage(tag, img.BuildContext); err != nil {
-			envLog.Errorf("Error building image %s: %s", tag, err)
-
 			//TODO: Clean up
-			return nil, fmt.Errorf("Error building image %s: %s", tag, err)
+			return nil, errors.Wrapf(err, "Error building image %s", tag)
 		}
 	}
+
+	// TODO: Fetch images
 
 	// Create network
 	netId, err := ceng.CreateNetwork(id)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Error creating network")
 	}
 
 	// TODO: Assign ports
 
-	/*
-		// Now create containers
-		for _, cont := range ed.Containers {
+	// Now create containers
+	for _, cont := range ed.Containers {
+		// Get corresponding image
+		tag, ok := name2tag[cont.Image]
 
+		if !ok {
+			return nil, errors.Errorf("Unknown image: %s", cont.Image)
 		}
-	*/
+
+		if err := ceng.RunContainer(tag, netId); err != nil {
+			return nil, errors.Wrapf(err, "Error running container: %s", cont.Name)
+		}
+	}
 
 	envLog.Infof("New env created: %s", id)
 

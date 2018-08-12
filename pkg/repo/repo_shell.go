@@ -25,17 +25,15 @@
 package repo
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 
 	"encoding/base64"
+	"encoding/json"
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
-
-	"encoding/json"
-
-	"bytes"
 
 	"github.com/pkg/errors"
 	"github.com/syhpoon/xenvman/pkg/logger"

@@ -31,5 +31,6 @@ type NetworkId = string
 type ContainerEngine interface {
 	CreateNetwork(name string) (NetworkId, error)
 	BuildImage(tag string, buildContext io.Reader) error
+	RunContainer(tag, netId string) error
 	Terminate()
 }

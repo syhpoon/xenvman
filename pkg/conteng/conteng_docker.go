@@ -25,22 +25,18 @@
 package conteng
 
 import (
+	"bytes"
 	"context"
-	"fmt"
-
 	"io"
 
-	"bytes"
 	"encoding/json"
 	"io/ioutil"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
-	"github.com/syhpoon/xenvman/pkg/logger"
 )
-
-var dockerLog = logger.GetLogger("xenvman.pkg.conteng.conteng_docker")
 
 type DockerEngineParams struct {
 	Ctx context.Context
@@ -55,9 +51,7 @@ func NewDockerEngine(params DockerEngineParams) (*DockerEngine, error) {
 	cli, err := client.NewClientWithOpts(client.WithVersion("1.37"))
 
 	if err != nil {
-		dockerLog.Errorf("Error creating docker client: %s", err)
-
-		return nil, fmt.Errorf("Error creating docker client: %s", err)
+		return nil, errors.Wrapf(err, "Error creating docker client")
 	}
 
 	return &DockerEngine{
@@ -75,12 +69,36 @@ func (de *DockerEngine) CreateNetwork(name string) (NetworkId, error) {
 	r, err := de.cl.NetworkCreate(de.params.Ctx, name, netParams)
 
 	if err != nil {
-		dockerLog.Errorf("Error creating docker network: %s", err)
-
-		return "", fmt.Errorf("Error creating docker newtork: %s", err)
+		return "", errors.Wrapf(err, "Error creating docker network")
 	}
 
 	return r.ID, nil
+}
+
+func (de *DockerEngine) RunContainer(tag, netId string) error {
+	hostCont := &container.HostConfig{
+		NetworkMode: container.NetworkMode(netId),
+	}
+
+	r, err := de.cl.ContainerCreate(de.params.Ctx, &container.Config{
+		AttachStdout: true,
+		AttachStderr: true,
+		Image:        tag,
+		Cmd:          []string{"/bin/sleep", "infinity"},
+	}, hostCont, nil, "")
+
+	if err != nil {
+		return errors.Wrapf(err, "Error creating container %s", tag)
+	}
+
+	err = de.cl.ContainerStart(de.params.Ctx, r.ID,
+		types.ContainerStartOptions{})
+
+	if err != nil {
+		return errors.Wrapf(err, "Error starting container: %s", tag)
+	}
+
+	return nil
 }
 
 func (de *DockerEngine) BuildImage(tag string, buildContext io.Reader) error {
@@ -99,7 +117,7 @@ func (de *DockerEngine) BuildImage(tag string, buildContext io.Reader) error {
 
 	// Check server response
 	if rerr := de.isErrorResponse(r.Body); rerr != nil {
-		dockerLog.Errorf("Error from Docker server: %s", rerr)
+		return errors.Errorf("Error from Docker server: %s", rerr)
 
 		return rerr
 	}

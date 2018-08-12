@@ -26,14 +26,13 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"sync"
 	"syscall"
 
 	"os/signal"
-
-	"fmt"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
