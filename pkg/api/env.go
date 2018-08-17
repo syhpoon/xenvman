@@ -70,6 +70,34 @@ func (ed *envDef) Validate() error {
 	return nil
 }
 
+func (ed *envDef) assignIps(sub string,
+	conts []*containerDef) (map[string]string, map[string]string, error) {
+
+	ipn, err := lib.ParseNet(sub)
+
+	if err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
+
+	ips := map[string]string{}
+	hosts := map[string]string{}
+
+	for _, cont := range conts {
+		ip := ipn.NextIP()
+
+		if ip == nil {
+			return nil, nil, errors.Errorf("Unable to assign IP to container: network %s exhausted", sub)
+		}
+
+		ips[cont.Name] = ip.String()
+		hosts[cont.Name] = ip.String()
+
+		envLog.Debugf("Assigned IP %s to %s", ips[cont.Name], cont.Name)
+	}
+
+	return ips, hosts, nil
+}
+
 func newEnvId(name string) string {
 	id := lib.NewId()
 	t := time.Now().Format("20060102150405")
@@ -143,13 +171,19 @@ func NewEnv(ed *envDef, ceng conteng.ContainerEngine,
 	// TODO: Fetch images
 
 	// Create network
-	netId, err := ceng.CreateNetwork(id)
+	netId, sub, err := ceng.CreateNetwork(id)
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "Error creating network")
 	}
 
 	// TODO: Assign ports
+
+	ips, hosts, err := ed.assignIps(sub, ed.Containers)
+
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 
 	// Now create containers
 	for _, cont := range ed.Containers {
@@ -160,8 +194,15 @@ func NewEnv(ed *envDef, ceng conteng.ContainerEngine,
 			return nil, errors.Errorf("Unknown image: %s", cont.Image)
 		}
 
-		if err := ceng.RunContainer(tag, netId); err != nil {
-			return nil, errors.Wrapf(err, "Error running container: %s", cont.Name)
+		params := conteng.RunContainerParams{
+			NetworkId: netId,
+			IP:        ips[cont.Name],
+			Hosts:     hosts,
+		}
+
+		if err := ceng.RunContainer(cont.Name, tag, params); err != nil {
+			return nil, errors.Wrapf(err, "Error running container: %s",
+				cont.Name)
 		}
 	}
 

@@ -21,22 +21,37 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
 */
+package lib
 
-package conteng
+import (
+	"net"
+	"testing"
 
-import "io"
+	"github.com/stretchr/testify/require"
+)
 
-type NetworkId = string
+func TestIPNext(t *testing.T) {
+	ipn, err := ParseNet("10.0.0.0/30")
+	require.Nil(t, err)
 
-type RunContainerParams struct {
-	NetworkId NetworkId
-	IP        string
-	Hosts     map[string]string // hostname -> IP
+	ip1 := ipn.NextIP()
+	require.NotNil(t, ip1)
+	require.Equal(t, ip1.To4(), net.IP{10, 0, 0, 1}.To4())
+
+	ip2 := ipn.NextIP()
+	require.NotNil(t, ip2)
+	require.Equal(t, ip2.To4(), net.IP{10, 0, 0, 2}.To4())
+
+	ip3 := ipn.NextIP()
+	require.Nil(t, ip3)
 }
 
-type ContainerEngine interface {
-	CreateNetwork(name string) (NetworkId, string, error)
-	BuildImage(tag string, buildContext io.Reader) error
-	RunContainer(name, tag string, params RunContainerParams) error
-	Terminate()
+func TestNetsOverlap(t *testing.T) {
+	_, n1, _ := net.ParseCIDR("10.0.0.0/24")
+	_, n2, _ := net.ParseCIDR("10.0.0.0/30")
+	require.True(t, NetsOverlap(n1, n2))
+
+	_, n1, _ = net.ParseCIDR("10.0.0.0/30")
+	_, n2, _ = net.ParseCIDR("10.0.0.4/30")
+	require.False(t, NetsOverlap(n1, n2))
 }

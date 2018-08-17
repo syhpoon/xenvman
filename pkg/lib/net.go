@@ -21,22 +21,53 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
 */
+package lib
 
-package conteng
+import (
+	"net"
 
-import "io"
+	"encoding/binary"
 
-type NetworkId = string
+	"github.com/pkg/errors"
+)
 
-type RunContainerParams struct {
-	NetworkId NetworkId
-	IP        string
-	Hosts     map[string]string // hostname -> IP
+type Net struct {
+	ip     net.IP
+	lastIP net.IP
+	ipnet  *net.IPNet
 }
 
-type ContainerEngine interface {
-	CreateNetwork(name string) (NetworkId, string, error)
-	BuildImage(tag string, buildContext io.Reader) error
-	RunContainer(name, tag string, params RunContainerParams) error
-	Terminate()
+// Only works for IP4 for now
+func ParseNet(sub string) (*Net, error) {
+	ip, ipnet, err := net.ParseCIDR(sub)
+
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error parsing net: %s", sub)
+	}
+
+	lastip := make(net.IP, len(ip.To4()))
+
+	binary.BigEndian.PutUint32(lastip,
+		binary.BigEndian.Uint32(ip.To4())|^binary.BigEndian.Uint32(
+			net.IP(ipnet.Mask).To4()))
+
+	return &Net{
+		ip:     ip.To4(),
+		lastIP: lastip.To4(),
+		ipnet:  ipnet,
+	}, nil
+}
+
+func (n *Net) NextIP() net.IP {
+	n.ip[3]++
+
+	if n.ip.Equal(n.lastIP) || !n.ipnet.Contains(n.ip) {
+		return nil
+	}
+
+	return n.ip
+}
+
+func NetsOverlap(n1, n2 *net.IPNet) bool {
+	return n1.Contains(n2.IP) || n2.Contains(n1.IP)
 }

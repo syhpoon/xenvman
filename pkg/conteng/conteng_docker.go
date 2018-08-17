@@ -27,24 +27,35 @@ package conteng
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
+	"net"
+	"sync"
 
 	"encoding/json"
 	"io/ioutil"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
+	"github.com/syhpoon/xenvman/pkg/lib"
+	"github.com/syhpoon/xenvman/pkg/logger"
 )
+
+var dockerLog = logger.GetLogger("xenvman.pkg.conteng.conteng_docker")
 
 type DockerEngineParams struct {
 	Ctx context.Context
 }
 
 type DockerEngine struct {
-	cl     *client.Client
-	params DockerEngineParams
+	cl         *client.Client
+	params     DockerEngineParams
+	subNetOct1 int
+	subNetOct2 int
+	subNetMu   sync.Mutex
 }
 
 func NewDockerEngine(params DockerEngineParams) (*DockerEngine, error) {
@@ -54,38 +65,80 @@ func NewDockerEngine(params DockerEngineParams) (*DockerEngine, error) {
 		return nil, errors.Wrapf(err, "Error creating docker client")
 	}
 
+	dockerLog.Debugf("Docker engine client created")
+
 	return &DockerEngine{
-		cl:     cli,
-		params: params,
+		cl:         cli,
+		params:     params,
+		subNetOct1: 0,
+		subNetOct2: 0,
 	}, nil
 }
 
-func (de *DockerEngine) CreateNetwork(name string) (NetworkId, error) {
+func (de *DockerEngine) CreateNetwork(name string) (NetworkId, string, error) {
+	sub, err := de.getSubNet()
+
+	if err != nil {
+		return "", "", err
+	}
+
 	netParams := types.NetworkCreate{
 		CheckDuplicate: true,
 		Driver:         "bridge",
+		IPAM: &network.IPAM{
+			Config: []network.IPAMConfig{
+				{
+					Subnet:  sub,
+					IPRange: sub,
+				},
+			},
+		},
 	}
 
 	r, err := de.cl.NetworkCreate(de.params.Ctx, name, netParams)
 
 	if err != nil {
-		return "", errors.Wrapf(err, "Error creating docker network")
+		return "", "", errors.Wrapf(err, "Error creating docker network")
 	}
 
-	return r.ID, nil
+	dockerLog.Debugf("Network created: %s - %s :: %s", name, r.ID, sub)
+
+	return r.ID, sub, nil
 }
 
-func (de *DockerEngine) RunContainer(tag, netId string) error {
-	hostCont := &container.HostConfig{
-		NetworkMode: container.NetworkMode(netId),
+func (de *DockerEngine) RunContainer(name, tag string,
+	params RunContainerParams) error {
+
+	var hosts []string
+
+	for host, ip := range params.Hosts {
+		hosts = append(hosts, fmt.Sprintf("%s:%s", host, ip))
 	}
 
+	hostCont := &container.HostConfig{
+		NetworkMode: container.NetworkMode(params.NetworkId),
+		ExtraHosts:  hosts,
+	}
+
+	netConf := &network.NetworkingConfig{
+		EndpointsConfig: map[string]*network.EndpointSettings{
+			params.NetworkId: {
+				IPAMConfig: &network.EndpointIPAMConfig{
+					IPv4Address: params.IP,
+				},
+			},
+		},
+	}
+
+	_ = netConf
+
 	r, err := de.cl.ContainerCreate(de.params.Ctx, &container.Config{
+		Hostname:     name,
 		AttachStdout: true,
 		AttachStderr: true,
 		Image:        tag,
 		Cmd:          []string{"/bin/sleep", "infinity"},
-	}, hostCont, nil, "")
+	}, hostCont, nil, lib.NewId()[:5])
 
 	if err != nil {
 		return errors.Wrapf(err, "Error creating container %s", tag)
@@ -97,6 +150,8 @@ func (de *DockerEngine) RunContainer(tag, netId string) error {
 	if err != nil {
 		return errors.Wrapf(err, "Error starting container: %s", tag)
 	}
+
+	dockerLog.Debugf("Container started: %s, network=%s", tag, params.NetworkId)
 
 	return nil
 }
@@ -121,6 +176,8 @@ func (de *DockerEngine) BuildImage(tag string, buildContext io.Reader) error {
 
 		return rerr
 	}
+
+	dockerLog.Debugf("Image built: %s", tag)
 
 	return err
 }
@@ -151,4 +208,65 @@ func (de *DockerEngine) isErrorResponse(r io.Reader) error {
 	}
 
 	return nil
+}
+
+// TODO: This should probably be made more robust at some point
+func (de *DockerEngine) getSubNet() (string, error) {
+	de.subNetMu.Lock()
+	defer de.subNetMu.Unlock()
+
+	addrs, err := net.InterfaceAddrs()
+
+	if err != nil {
+		return "", errors.Wrap(err, "Error getting network addresses")
+	}
+
+	var nets []*net.IPNet
+
+	for _, addr := range addrs {
+		_, n, err := net.ParseCIDR(addr.String())
+
+		if err != nil {
+			dockerLog.Warningf("Error parsing address: %s", addr.String())
+
+			continue
+		}
+
+		nets = append(nets, n)
+	}
+
+	netaddr := func() string {
+		tpl := "10.%d.%d.0/24"
+
+		return fmt.Sprintf(tpl, de.subNetOct1, de.subNetOct2)
+	}
+
+	_, pnet, _ := net.ParseCIDR(netaddr())
+
+	for {
+		// Find non-overlapping network
+		overlap := false
+
+		for _, n := range nets {
+			if lib.NetsOverlap(pnet, n) {
+				overlap = true
+				break
+			}
+		}
+
+		if overlap {
+			de.subNetOct2 += 1
+
+			if de.subNetOct2 > 255 {
+				de.subNetOct1 += 1
+				de.subNetOct2 = 0
+			}
+
+			_, pnet, _ = net.ParseCIDR(netaddr())
+		} else {
+			break
+		}
+	}
+
+	return netaddr(), nil
 }
