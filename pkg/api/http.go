@@ -41,8 +41,11 @@ type apiResponse struct {
 func ApiReply(w http.ResponseWriter, code int,
 	msg string, args ...interface{}) {
 	e := apiResponse{
-		Code:    code,
-		Message: fmt.Sprintf(msg, args...),
+		Code: code,
+	}
+
+	if msg != "" {
+		e.Message = fmt.Sprintf(msg, args...)
 	}
 
 	body, _ := json.MarshalIndent(e, "", "   ")

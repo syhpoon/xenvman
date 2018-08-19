@@ -107,7 +107,7 @@ func (de *DockerEngine) CreateNetwork(name string) (NetworkId, string, error) {
 }
 
 func (de *DockerEngine) RunContainer(name, tag string,
-	params RunContainerParams) error {
+	params RunContainerParams) (string, error) {
 
 	var hosts []string
 
@@ -118,6 +118,7 @@ func (de *DockerEngine) RunContainer(name, tag string,
 	hostCont := &container.HostConfig{
 		NetworkMode: container.NetworkMode(params.NetworkId),
 		ExtraHosts:  hosts,
+		AutoRemove:  true,
 	}
 
 	netConf := &network.NetworkingConfig{
@@ -130,30 +131,41 @@ func (de *DockerEngine) RunContainer(name, tag string,
 		},
 	}
 
-	_ = netConf
-
 	r, err := de.cl.ContainerCreate(de.params.Ctx, &container.Config{
 		Hostname:     name,
 		AttachStdout: true,
 		AttachStderr: true,
 		Image:        tag,
-		Cmd:          []string{"/bin/sleep", "infinity"},
-	}, hostCont, nil, lib.NewId()[:5])
+		//TODO:
+		Cmd: []string{"/bin/sleep", "infinity"},
+	}, hostCont, netConf, lib.NewId()[:5])
 
 	if err != nil {
-		return errors.Wrapf(err, "Error creating container %s", tag)
+		return "", errors.Wrapf(err, "Error creating container %s", tag)
 	}
 
 	err = de.cl.ContainerStart(de.params.Ctx, r.ID,
 		types.ContainerStartOptions{})
 
 	if err != nil {
-		return errors.Wrapf(err, "Error starting container: %s", tag)
+		return "", errors.Wrapf(err, "Error starting container: %s", tag)
 	}
 
 	dockerLog.Debugf("Container started: %s, network=%s", tag, params.NetworkId)
 
-	return nil
+	return r.ID, nil
+}
+
+func (de *DockerEngine) RemoveContainer(id string) error {
+	return de.cl.ContainerRemove(de.params.Ctx, id,
+		types.ContainerRemoveOptions{
+			RemoveVolumes: true,
+			Force:         true,
+		})
+}
+
+func (de *DockerEngine) RemoveNetwork(id string) error {
+	return de.cl.NetworkRemove(de.params.Ctx, id)
 }
 
 func (de *DockerEngine) BuildImage(tag string, buildContext io.Reader) error {
@@ -173,8 +185,6 @@ func (de *DockerEngine) BuildImage(tag string, buildContext io.Reader) error {
 	// Check server response
 	if rerr := de.isErrorResponse(r.Body); rerr != nil {
 		return errors.Errorf("Error from Docker server: %s", rerr)
-
-		return rerr
 	}
 
 	dockerLog.Debugf("Image built: %s", tag)

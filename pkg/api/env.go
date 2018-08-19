@@ -26,6 +26,7 @@ package api
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -36,67 +37,6 @@ import (
 )
 
 var envLog = logger.GetLogger("xenvman.pkg.api.env")
-
-type imageDef struct {
-	Name       string                 `json:"name"`
-	Repo       string                 `json:"repo"`
-	Provider   string                 `json:"provider"`
-	Parameters map[string]interface{} `json:"parameters"`
-}
-
-type containerDef struct {
-	Name    string            `json:"name"`
-	Image   string            `json:"image"`
-	Env     map[string]string `json:"env"`
-	Volumes map[string]string `json:"volumes"`
-}
-
-type envDef struct {
-	// Environment name
-	Name string `json:"name"`
-	// Environment description
-	Description string `json:"description"`
-	// Images to provision
-	Images []*imageDef `json:"images"`
-	// Containers to create
-	Containers []*containerDef `json:"containers"`
-}
-
-func (ed *envDef) Validate() error {
-	if ed.Name == "" {
-		return fmt.Errorf("Name is empty")
-	}
-
-	return nil
-}
-
-func (ed *envDef) assignIps(sub string,
-	conts []*containerDef) (map[string]string, map[string]string, error) {
-
-	ipn, err := lib.ParseNet(sub)
-
-	if err != nil {
-		return nil, nil, errors.WithStack(err)
-	}
-
-	ips := map[string]string{}
-	hosts := map[string]string{}
-
-	for _, cont := range conts {
-		ip := ipn.NextIP()
-
-		if ip == nil {
-			return nil, nil, errors.Errorf("Unable to assign IP to container: network %s exhausted", sub)
-		}
-
-		ips[cont.Name] = ip.String()
-		hosts[cont.Name] = ip.String()
-
-		envLog.Debugf("Assigned IP %s to %s", ips[cont.Name], cont.Name)
-	}
-
-	return ips, hosts, nil
-}
 
 func newEnvId(name string) string {
 	id := lib.NewId()
@@ -109,8 +49,11 @@ func newEnvId(name string) string {
 type Env struct {
 	Id string
 
-	ceng  conteng.ContainerEngine
-	netId string
+	ceng        conteng.ContainerEngine
+	netId       string
+	containers  []string
+	terminating bool
+	sync.Mutex
 }
 
 func NewEnv(ed *envDef, ceng conteng.ContainerEngine,
@@ -185,6 +128,8 @@ func NewEnv(ed *envDef, ceng conteng.ContainerEngine,
 		return nil, errors.WithStack(err)
 	}
 
+	var cids []string
+
 	// Now create containers
 	for _, cont := range ed.Containers {
 		// Get corresponding image
@@ -200,19 +145,63 @@ func NewEnv(ed *envDef, ceng conteng.ContainerEngine,
 			Hosts:     hosts,
 		}
 
-		if err := ceng.RunContainer(cont.Name, tag, params); err != nil {
-			return nil, errors.Wrapf(err, "Error running container: %s",
-				cont.Name)
+		cid, err := ceng.RunContainer(cont.Name, tag, params)
+
+		if err != nil {
+			return nil, errors.Wrapf(err, "Error running container: %s", cont.Name)
+		} else {
+			cids = append(cids, cid)
 		}
 	}
 
 	envLog.Infof("New env created: %s", id)
 
 	env := &Env{
-		Id:    id,
-		ceng:  ceng,
-		netId: netId,
+		Id:         id,
+		ceng:       ceng,
+		netId:      netId,
+		containers: cids,
 	}
 
 	return env, nil
+}
+
+func (e *Env) Terminate() error {
+	e.Lock()
+
+	if e.terminating {
+		e.Unlock()
+		return nil
+	}
+
+	e.terminating = true
+	e.Unlock()
+
+	envLog.Infof("Terminating env %s", e.Id)
+
+	var err error
+
+	// Stop containers
+	for _, cid := range e.containers {
+		if err = e.ceng.RemoveContainer(cid); err != nil {
+			envLog.Errorf("Error terminating env %s: %s", e.Id, err)
+		}
+
+		envLog.Debugf("Container %s removed", cid)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	//TODO: Remove images
+
+	// Remove network
+	err = e.ceng.RemoveNetwork(e.netId)
+
+	if err == nil {
+		envLog.Debugf("Network %s removed", e.netId)
+	}
+
+	return err
 }

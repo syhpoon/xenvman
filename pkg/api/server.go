@@ -107,6 +107,10 @@ func (s *Server) setupHandlers() {
 	s.router.HandleFunc("/api/v1/env", s.createEnvHandler).
 		Methods(http.MethodPost)
 
+	// DELETE /api/v1/env/{id{ - Delete an environment
+	s.router.HandleFunc("/api/v1/env/{id}", s.deleteEnvHandler).
+		Methods(http.MethodDelete)
+
 	//TODO: Show api doc on root
 	//s.router.HandleFunc("/", s.handleRoot)
 }
@@ -160,4 +164,39 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 
 	//TODO: Return the entire env structure
 	ApiReply(w, http.StatusOK, env.Id)
+}
+
+func (s *Server) deleteEnvHandler(w http.ResponseWriter, req *http.Request) {
+	defer req.Body.Close()
+
+	vars := mux.Vars(req)
+	id := vars["id"]
+
+	s.RLock()
+	env, ok := s.envs[id]
+	s.RUnlock()
+
+	if !ok {
+		serverLog.Errorf("Env not found", id)
+
+		ApiReply(w, http.StatusNotFound, "Env not found")
+
+		return
+	}
+
+	err := env.Terminate()
+
+	if err != nil {
+		serverLog.Errorf("Error terminating env %s: %+v", id, err)
+
+		ApiReply(w, http.StatusBadRequest, "Error terminating env: %s", err)
+
+		return
+	}
+
+	s.Lock()
+	delete(s.envs, id)
+	s.Unlock()
+
+	ApiReply(w, http.StatusOK, "Env deleted")
 }
