@@ -107,12 +107,19 @@ func (s *Server) setupHandlers() {
 	s.router.HandleFunc("/api/v1/env", s.createEnvHandler).
 		Methods(http.MethodPost)
 
-	// DELETE /api/v1/env/{id{ - Delete an environment
+	// DELETE /api/v1/env/{id} - Delete an environment
 	s.router.HandleFunc("/api/v1/env/{id}", s.deleteEnvHandler).
 		Methods(http.MethodDelete)
 
-	//TODO: Show api doc on root
-	//s.router.HandleFunc("/", s.handleRoot)
+	// POST /api/v1/env/{id}/keepalive - Keep alive an environment
+	s.router.HandleFunc("/api/v1/env/{id}/keepalive", s.keepaliveEnvHandler).
+		Methods(http.MethodPost)
+
+	//TODO: API doc
+	//s.router.HandleFunc("/apidoc", s.handleRoot)
+
+	//TODO: Web UI on root?
+	//s.router.HandleFunc("/apidoc", s.handleRoot)
 }
 
 // Body: envDef structure
@@ -148,7 +155,7 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	env, err := NewEnv(&edef, s.params.ContEng, s.repos)
+	env, err := NewEnv(&edef, s.params.ContEng, s.repos, s.params.Ctx)
 
 	if err != nil {
 		serverLog.Errorf("Error creating env: %+v", err)
@@ -199,4 +206,39 @@ func (s *Server) deleteEnvHandler(w http.ResponseWriter, req *http.Request) {
 	s.Unlock()
 
 	ApiReply(w, http.StatusOK, "Env deleted")
+}
+
+func (s *Server) keepaliveEnvHandler(w http.ResponseWriter, req *http.Request) {
+	defer req.Body.Close()
+
+	vars := mux.Vars(req)
+	id := vars["id"]
+
+	s.RLock()
+	env, ok := s.envs[id]
+	s.RUnlock()
+
+	if !ok {
+		serverLog.Errorf("Env not found", id)
+
+		ApiReply(w, http.StatusNotFound, "Env not found")
+
+		return
+	}
+
+	if !env.IsAlive() {
+		serverLog.Errorf("Env is terminating %s", id)
+
+		s.Lock()
+		delete(s.envs, id)
+		s.Unlock()
+
+		ApiReply(w, http.StatusNotFound, "Env is terminating")
+
+		return
+	}
+
+	env.KeepAlive()
+
+	ApiReply(w, http.StatusOK, "")
 }

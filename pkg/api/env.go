@@ -25,6 +25,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -49,15 +50,17 @@ func newEnvId(name string) string {
 type Env struct {
 	Id string
 
-	ceng        conteng.ContainerEngine
-	netId       string
-	containers  []string
-	terminating bool
-	sync.Mutex
+	ed            *envDef
+	ceng          conteng.ContainerEngine
+	netId         string
+	containers    []string
+	terminating   bool
+	keepAliveChan chan bool
+	sync.RWMutex
 }
 
 func NewEnv(ed *envDef, ceng conteng.ContainerEngine,
-	repos map[string]repo.Repo) (*Env, error) {
+	repos map[string]repo.Repo, ctx context.Context) (*Env, error) {
 
 	id := newEnvId(ed.Name)
 
@@ -157,13 +160,29 @@ func NewEnv(ed *envDef, ceng conteng.ContainerEngine,
 	envLog.Infof("New env created: %s", id)
 
 	env := &Env{
-		Id:         id,
-		ceng:       ceng,
-		netId:      netId,
-		containers: cids,
+		Id:            id,
+		ed:            ed,
+		ceng:          ceng,
+		netId:         netId,
+		containers:    cids,
+		keepAliveChan: make(chan bool, 1),
+	}
+
+	if ed.Options.KeepAlive != 0 {
+		envLog.Infof("Keep alive for %s = %s", id, ed.Options.KeepAlive)
+
+		go env.keepAliveWatchdog(ctx)
 	}
 
 	return env, nil
+}
+
+func (e *Env) IsAlive() bool {
+	e.RLock()
+	alive := !e.terminating
+	e.RUnlock()
+
+	return alive
 }
 
 func (e *Env) Terminate() error {
@@ -204,4 +223,33 @@ func (e *Env) Terminate() error {
 	}
 
 	return err
+}
+
+func (e *Env) KeepAlive() {
+	e.keepAliveChan <- true
+}
+
+func (e *Env) keepAliveWatchdog(ctx context.Context) {
+	d := time.Duration(e.ed.Options.KeepAlive)
+
+	keepAliveTimer := time.NewTimer(d)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-e.keepAliveChan:
+			if !keepAliveTimer.Stop() {
+				<-keepAliveTimer.C
+			}
+
+			keepAliveTimer.Reset(d)
+		case <-keepAliveTimer.C:
+			envLog.Infof("Keep alive timeout triggered for %s, terminating", e.Id)
+
+			e.Terminate()
+
+			return
+		}
+	}
 }
