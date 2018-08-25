@@ -31,5 +31,6 @@ import (
 
 // Generate new random ID based on UUID v4
 func NewId() string {
-	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
+	id, _ := uuid.NewV4()
+	return strings.Replace(id.String(), "-", "", -1)
 }

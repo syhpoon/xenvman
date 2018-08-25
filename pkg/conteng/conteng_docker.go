@@ -39,6 +39,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
 	"github.com/syhpoon/xenvman/pkg/lib"
 	"github.com/syhpoon/xenvman/pkg/logger"
@@ -115,10 +116,19 @@ func (de *DockerEngine) RunContainer(name, tag string,
 		hosts = append(hosts, fmt.Sprintf("%s:%s", host, ip))
 	}
 
+	var rawPorts []string
+
+	for contPort, hostPort := range params.Ports {
+		rawPorts = append(rawPorts, fmt.Sprintf("%d:%d", hostPort, contPort))
+	}
+
+	ports, bindings, err := nat.ParsePortSpecs(rawPorts)
+
 	hostCont := &container.HostConfig{
-		NetworkMode: container.NetworkMode(params.NetworkId),
-		ExtraHosts:  hosts,
-		AutoRemove:  true,
+		NetworkMode:  container.NetworkMode(params.NetworkId),
+		ExtraHosts:   hosts,
+		AutoRemove:   true,
+		PortBindings: bindings,
 	}
 
 	netConf := &network.NetworkingConfig{
@@ -136,6 +146,7 @@ func (de *DockerEngine) RunContainer(name, tag string,
 		AttachStdout: true,
 		AttachStderr: true,
 		Image:        tag,
+		ExposedPorts: ports,
 		//TODO:
 		Cmd: []string{"/bin/sleep", "infinity"},
 	}, hostCont, netConf, lib.NewId()[:5])

@@ -48,6 +48,7 @@ type ServerParams struct {
 	ReadTimeout  time.Duration
 	Repos        map[string]repo.Repo
 	ContEng      conteng.ContainerEngine
+	PortRange    *PortRange
 	Ctx          context.Context
 }
 
@@ -155,7 +156,13 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	env, err := NewEnv(&edef, s.params.ContEng, s.repos, s.params.Ctx)
+	env, err := NewEnv(EnvParams{
+		EnvDef:    &edef,
+		ContEng:   s.params.ContEng,
+		Repos:     s.repos,
+		PortRange: s.params.PortRange,
+		Ctx:       s.params.Ctx,
+	})
 
 	if err != nil {
 		serverLog.Errorf("Error creating env: %+v", err)

@@ -25,9 +25,11 @@
 package config
 
 var defaultConfig = []byte(`
+ports-range = [30000, 40000]
+container-engine = "docker"
+
 [api]
 listen = ":9876"
-container-engine = "docker"
 
 [log]
 config = "<root>=trace"

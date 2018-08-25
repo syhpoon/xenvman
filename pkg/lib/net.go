@@ -25,6 +25,8 @@ package lib
 
 import (
 	"net"
+	"os"
+	"syscall"
 
 	"encoding/binary"
 
@@ -70,4 +72,14 @@ func (n *Net) NextIP() net.IP {
 
 func NetsOverlap(n1, n2 *net.IPNet) bool {
 	return n1.Contains(n2.IP) || n2.Contains(n1.IP)
+}
+
+func IsErrAddrInUse(err error) bool {
+	if err, ok := err.(*net.OpError); ok {
+		if err, ok := err.Err.(*os.SyscallError); ok {
+			return err.Err == syscall.EADDRINUSE
+		}
+	}
+
+	return false
 }

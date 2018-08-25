@@ -34,6 +34,8 @@ import (
 
 	"os/signal"
 
+	"strconv"
+
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -88,6 +90,18 @@ var apiRunCmd = &cobra.Command{
 		}
 
 		apiParams.Listener = listener
+
+		// Ports
+		prange, err := parsePorts()
+
+		if err != nil {
+			apiLog.Errorf("Error parsing ports: %s", err)
+
+			os.Exit(1)
+		} else {
+			apiParams.PortRange = prange
+		}
+
 		apiServer := api.NewServer(apiParams)
 
 		wg := &sync.WaitGroup{}
@@ -101,7 +115,7 @@ var apiRunCmd = &cobra.Command{
 }
 
 func buildContEng(ctx context.Context) (conteng.ContainerEngine, error) {
-	ceng := config.GetString("api.container-engine")
+	ceng := config.GetString("container-engine")
 
 	switch ceng {
 	case "docker":
@@ -113,7 +127,7 @@ func buildContEng(ctx context.Context) (conteng.ContainerEngine, error) {
 
 		return conteng.NewDockerEngine(params)
 	default:
-		return nil, fmt.Errorf("Unknown container engine: %s", ceng)
+		return nil, fmt.Errorf("Unknown container engine type: %s", ceng)
 	}
 }
 
@@ -185,6 +199,32 @@ func parseRepos() (map[string]repo.Repo, error) {
 	}
 
 	return repos, nil
+}
+
+func parsePorts() (*api.PortRange, error) {
+	ports := config.GetStrings("ports-range")
+
+	if len(ports) != 2 {
+		return nil, fmt.Errorf("Expected two ports for a range, got %d", len(ports))
+	}
+
+	pMin, err := strconv.ParseUint(ports[0], 0, 16)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing port %s: %s", ports[0], err)
+	}
+
+	pMax, err := strconv.ParseUint(ports[1], 0, 16)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing port %s: %s", ports[1], err)
+	}
+
+	if pMax < pMin {
+		return nil, fmt.Errorf("Port %d should be greater than %d", pMax, pMin)
+	}
+
+	return api.NewPortRange(uint16(pMin), uint16(pMax)), nil
 }
 
 func configureShellRepo(raw map[string]interface{}) (repo.Repo, error) {

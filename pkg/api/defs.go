@@ -46,12 +46,17 @@ type containerDef struct {
 	Image   string            `json:"image"`
 	Env     map[string]string `json:"env"`
 	Volumes map[string]string `json:"volumes"`
+	Ports   []uint16          `json:"ports,omitempty"`
 }
 
 type Duration time.Duration
 
 func (d Duration) MarshalJSON() ([]byte, error) {
 	return json.Marshal(d)
+}
+
+func (d Duration) String() string {
+	return time.Duration(d).String()
 }
 
 func (d *Duration) UnmarshalJSON(b []byte) error {

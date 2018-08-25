@@ -59,18 +59,25 @@ type Env struct {
 	sync.RWMutex
 }
 
-func NewEnv(ed *envDef, ceng conteng.ContainerEngine,
-	repos map[string]repo.Repo, ctx context.Context) (*Env, error) {
+type EnvParams struct {
+	EnvDef    *envDef
+	ContEng   conteng.ContainerEngine
+	Repos     map[string]repo.Repo
+	PortRange *PortRange
+	Ctx       context.Context
+}
 
-	id := newEnvId(ed.Name)
+func NewEnv(params EnvParams) (*Env, error) {
+
+	id := newEnvId(params.EnvDef.Name)
 
 	pimages := map[string]repo.ProvisionedImage{}
 	imagesToBuild := map[string]*repo.BuildImage{}
 	name2tag := map[string]string{}
 
 	// First provision images
-	for _, imDef := range ed.Images {
-		rep, ok := repos[imDef.Repo]
+	for _, imDef := range params.EnvDef.Images {
+		rep, ok := params.Repos[imDef.Repo]
 
 		if !ok {
 			return nil, errors.Errorf("Unknown repo: %s", imDef.Repo)
@@ -108,7 +115,7 @@ func NewEnv(ed *envDef, ceng conteng.ContainerEngine,
 	// Build images
 	for tag, img := range imagesToBuild {
 		//TODO: Run in parallel
-		if err := ceng.BuildImage(tag, img.BuildContext); err != nil {
+		if err := params.ContEng.BuildImage(tag, img.BuildContext); err != nil {
 			//TODO: Clean up
 			return nil, errors.Wrapf(err, "Error building image %s", tag)
 		}
@@ -117,15 +124,13 @@ func NewEnv(ed *envDef, ceng conteng.ContainerEngine,
 	// TODO: Fetch images
 
 	// Create network
-	netId, sub, err := ceng.CreateNetwork(id)
+	netId, sub, err := params.ContEng.CreateNetwork(id)
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "Error creating network")
 	}
 
-	// TODO: Assign ports
-
-	ips, hosts, err := ed.assignIps(sub, ed.Containers)
+	ips, hosts, err := params.EnvDef.assignIps(sub, params.EnvDef.Containers)
 
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -134,7 +139,23 @@ func NewEnv(ed *envDef, ceng conteng.ContainerEngine,
 	var cids []string
 
 	// Now create containers
-	for _, cont := range ed.Containers {
+	for _, cont := range params.EnvDef.Containers {
+		// Expose ports
+		ports := map[uint16]uint16{}
+
+		for _, contPort := range cont.Ports {
+			port, err := params.PortRange.NextPort()
+
+			if err != nil {
+				return nil, errors.WithStack(err)
+			}
+
+			envLog.Debugf("Exposing internal port %d as %d for %s",
+				contPort, port, cont.Name)
+
+			ports[contPort] = port
+		}
+
 		// Get corresponding image
 		tag, ok := name2tag[cont.Image]
 
@@ -142,13 +163,14 @@ func NewEnv(ed *envDef, ceng conteng.ContainerEngine,
 			return nil, errors.Errorf("Unknown image: %s", cont.Image)
 		}
 
-		params := conteng.RunContainerParams{
+		cparams := conteng.RunContainerParams{
 			NetworkId: netId,
 			IP:        ips[cont.Name],
 			Hosts:     hosts,
+			Ports:     ports,
 		}
 
-		cid, err := ceng.RunContainer(cont.Name, tag, params)
+		cid, err := params.ContEng.RunContainer(cont.Name, tag, cparams)
 
 		if err != nil {
 			return nil, errors.Wrapf(err, "Error running container: %s", cont.Name)
@@ -161,17 +183,17 @@ func NewEnv(ed *envDef, ceng conteng.ContainerEngine,
 
 	env := &Env{
 		Id:            id,
-		ed:            ed,
-		ceng:          ceng,
+		ed:            params.EnvDef,
+		ceng:          params.ContEng,
 		netId:         netId,
 		containers:    cids,
 		keepAliveChan: make(chan bool, 1),
 	}
 
-	if ed.Options.KeepAlive != 0 {
-		envLog.Infof("Keep alive for %s = %s", id, ed.Options.KeepAlive)
+	if params.EnvDef.Options.KeepAlive != 0 {
+		envLog.Infof("Keep alive for %s = %s", id, params.EnvDef.Options.KeepAlive)
 
-		go env.keepAliveWatchdog(ctx)
+		go env.keepAliveWatchdog(params.Ctx)
 	}
 
 	return env, nil

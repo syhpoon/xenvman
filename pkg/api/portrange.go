@@ -22,26 +22,69 @@
  SOFTWARE.
 */
 
-package conteng
+package api
 
-import "io"
+import (
+	"fmt"
+	"net"
+	"sync"
 
-type NetworkId = string
+	"github.com/pkg/errors"
+	"github.com/syhpoon/xenvman/pkg/lib"
+)
 
-type RunContainerParams struct {
-	NetworkId NetworkId
-	IP        string
-	Hosts     map[string]string // hostname -> IP
-	Ports     map[uint16]uint16 // container port -> host port
+type Port = uint16
+
+type PortRange struct {
+	min  Port
+	max  Port
+	next Port
+	sync.Mutex
 }
 
-type ContainerEngine interface {
-	CreateNetwork(name string) (NetworkId, string, error)
-	BuildImage(tag string, buildContext io.Reader) error
-	RunContainer(name, tag string, params RunContainerParams) (string, error)
-	// Stop and remove
-	RemoveContainer(id string) error
-	RemoveNetwork(id string) error
+func NewPortRange(min, max Port) *PortRange {
+	return &PortRange{
+		min:  min,
+		next: min,
+		max:  max,
+	}
+}
 
-	Terminate()
+func (pr *PortRange) NextPort() (Port, error) {
+	pr.Lock()
+	defer pr.Unlock()
+
+	var span uint16 = 0
+
+	for {
+		if span >= pr.max-pr.min {
+			return 0, errors.Errorf("No free ports found in range %d-%d", pr.min, pr.max)
+		}
+
+		// Reset back to min, some ports may have been freed by now
+		if pr.next > pr.max {
+			pr.next = pr.min
+		}
+
+		l, err := net.Listen("tcp", fmt.Sprintf(":%d", pr.next))
+
+		if err != nil {
+			span++
+
+			if lib.IsErrAddrInUse(err) {
+				continue
+			}
+
+			return 0, err
+		} else {
+			span = 0
+		}
+
+		pr.next += 1
+
+		port := l.Addr().(*net.TCPAddr).Port
+		l.Close()
+
+		return uint16(port), nil
+	}
 }
