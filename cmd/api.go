@@ -75,7 +75,9 @@ var apiRunCmd = &cobra.Command{
 			apiParams.Repos = repos
 		}
 
-		if contEng, err := buildContEng(ctx); err != nil {
+		centCtx, centCancel := context.WithCancel(context.Background())
+
+		if contEng, err := buildContEng(centCtx); err != nil {
 			apiLog.Errorf("Error building container engine: %s", err)
 		} else {
 			apiParams.ContEng = contEng
@@ -110,7 +112,7 @@ var apiRunCmd = &cobra.Command{
 
 		go apiServer.Run(wg)
 
-		wait(ctx, cancel, wg)
+		wait(ctx, cancel, centCancel, wg)
 	},
 }
 
@@ -131,7 +133,7 @@ func buildContEng(ctx context.Context) (conteng.ContainerEngine, error) {
 	}
 }
 
-func wait(ctx context.Context, cancel func(), wg *sync.WaitGroup) {
+func wait(ctx context.Context, cancel, centCancel func(), wg *sync.WaitGroup) {
 	c := make(chan os.Signal, 1)
 
 	signal.Notify(c, os.Interrupt)
@@ -162,6 +164,7 @@ LOOP:
 	}
 
 	wg.Wait()
+	centCancel()
 }
 
 func parseRepos() (map[string]repo.Repo, error) {

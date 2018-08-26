@@ -27,9 +27,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"syscall"
-
-	"os/signal"
 
 	"github.com/spf13/cobra"
 	"github.com/syhpoon/xenvman/pkg/config"
@@ -52,7 +49,7 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig, initLogger, initSignals)
+	cobra.OnInitialize(initConfig, initLogger)
 
 	RootCmd.PersistentFlags().StringVarP(&flagConfig,
 		"config", "c", "", "Path to configuration file")
@@ -78,24 +75,6 @@ func initLogger() {
 			os.Exit(1)
 		}
 	}
-}
-
-func initSignals() {
-	c := make(chan os.Signal, 1)
-
-	signal.Notify(c, os.Interrupt)
-	signal.Notify(c, syscall.SIGTERM)
-
-	go func() {
-		for x := range c {
-			switch x {
-			case os.Interrupt, syscall.SIGTERM:
-				rootLog.Infof("Got SIGTERM, shutting down.")
-
-				os.Exit(0)
-			}
-		}
-	}()
 }
 
 func init() {

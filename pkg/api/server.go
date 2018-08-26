@@ -86,8 +86,6 @@ func NewServer(params ServerParams) *Server {
 }
 
 func (s *Server) Run(wg *sync.WaitGroup) {
-	defer wg.Done()
-
 	// API endpoints
 	s.setupHandlers()
 
@@ -95,6 +93,16 @@ func (s *Server) Run(wg *sync.WaitGroup) {
 	go func() {
 		<-s.params.Ctx.Done()
 		s.server.Shutdown(s.params.Ctx)
+
+		s.Lock()
+
+		for _, env := range s.envs {
+			env.Terminate()
+		}
+
+		s.Unlock()
+
+		wg.Done()
 	}()
 
 	serverLog.Infof("Starting API server at %s",
