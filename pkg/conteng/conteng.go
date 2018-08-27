@@ -38,6 +38,7 @@ type RunContainerParams struct {
 type ContainerEngine interface {
 	CreateNetwork(name string) (NetworkId, string, error)
 	BuildImage(tag string, buildContext io.Reader) error
+	RemoveImage(tag string) error
 	RunContainer(name, tag string, params RunContainerParams) (string, error)
 	// Stop and remove
 	RemoveContainer(id string) error

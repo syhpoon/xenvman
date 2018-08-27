@@ -203,6 +203,21 @@ func (de *DockerEngine) BuildImage(tag string, buildContext io.Reader) error {
 	return err
 }
 
+func (de *DockerEngine) RemoveImage(tag string) error {
+	opts := types.ImageRemoveOptions{
+		Force:         true,
+		PruneChildren: true,
+	}
+
+	_, err := de.cl.ImageRemove(de.params.Ctx, tag, opts)
+
+	if err == nil {
+		dockerLog.Debugf("Image removed: %s", tag)
+	}
+
+	return err
+}
+
 func (de *DockerEngine) Terminate() {
 	de.cl.Close()
 }

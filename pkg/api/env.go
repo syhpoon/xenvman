@@ -56,6 +56,7 @@ type Env struct {
 	containers    []string
 	terminating   bool
 	keepAliveChan chan bool
+	builtImages   map[string]struct{}
 	sync.RWMutex
 }
 
@@ -74,6 +75,7 @@ func NewEnv(params EnvParams) (*Env, error) {
 	pimages := map[string]repo.ProvisionedImage{}
 	imagesToBuild := map[string]*repo.BuildImage{}
 	name2tag := map[string]string{}
+	builtTags := map[string]struct{}{}
 
 	// First provision images
 	for _, imDef := range params.EnvDef.Images {
@@ -119,6 +121,8 @@ func NewEnv(params EnvParams) (*Env, error) {
 			//TODO: Clean up
 			return nil, errors.Wrapf(err, "Error building image %s", tag)
 		}
+
+		builtTags[tag] = struct{}{}
 	}
 
 	// TODO: Fetch images
@@ -188,6 +192,7 @@ func NewEnv(params EnvParams) (*Env, error) {
 		netId:         netId,
 		containers:    cids,
 		keepAliveChan: make(chan bool, 1),
+		builtImages:   builtTags,
 	}
 
 	if params.EnvDef.Options.KeepAlive != 0 {
@@ -235,7 +240,12 @@ func (e *Env) Terminate() error {
 		return err
 	}
 
-	//TODO: Remove images
+	// Remove images
+	for tag := range e.builtImages {
+		if err := e.ceng.RemoveImage(tag); err != nil {
+			envLog.Warningf("Error removing image: %+v", err)
+		}
+	}
 
 	// Remove network
 	err = e.ceng.RemoveNetwork(e.netId)

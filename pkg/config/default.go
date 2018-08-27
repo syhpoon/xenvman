@@ -25,7 +25,7 @@
 package config
 
 var defaultConfig = []byte(`
-ports-range = [30000, 40000]
+ports-range = [20000, 30000]
 container-engine = "docker"
 
 [api]
