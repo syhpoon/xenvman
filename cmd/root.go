@@ -33,7 +33,6 @@ import (
 	"github.com/syhpoon/xenvman/pkg/logger"
 )
 
-var rootLog = logger.GetLogger("xenvman.cmd.root")
 var flagConfig string
 
 var RootCmd = &cobra.Command{

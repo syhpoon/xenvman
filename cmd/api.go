@@ -57,7 +57,7 @@ var apiRunCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Run API server",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		config.BindPFlag("api.listen", cmd.Flag("listen"))
+		_ = config.BindPFlag("api.listen", cmd.Flag("listen"))
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx, cancel := context.WithCancel(context.Background())

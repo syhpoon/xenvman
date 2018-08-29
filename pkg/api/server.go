@@ -140,7 +140,7 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		serverLog.Errorf("Error reading request body: %s", err)
 
-		ApiReply(w, http.StatusBadRequest, "Error reading request body: %s", err)
+		ApiSendMessage(w, http.StatusBadRequest, "Error reading request body: %s", err)
 
 		return
 	}
@@ -150,7 +150,7 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 	if err = json.Unmarshal(body, &edef); err != nil {
 		serverLog.Errorf("Error decoding request body: %s", err)
 
-		ApiReply(w, http.StatusBadRequest, "Error decoding request body: %s", err)
+		ApiSendMessage(w, http.StatusBadRequest, "Error decoding request body: %s", err)
 
 		return
 	}
@@ -158,7 +158,7 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 	if validErr := edef.Validate(); validErr != nil {
 		serverLog.Errorf("Error validating request body: %s", validErr)
 
-		ApiReply(w, http.StatusBadRequest, "Error validating request body: %s",
+		ApiSendMessage(w, http.StatusBadRequest, "Error validating request body: %s",
 			validErr)
 
 		return
@@ -175,7 +175,7 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		serverLog.Errorf("Error creating env: %+v", err)
 
-		ApiReply(w, http.StatusBadRequest, "Error creating env: %s", err)
+		ApiSendMessage(w, http.StatusBadRequest, "Error creating env: %s", err)
 
 		return
 	}
@@ -184,8 +184,7 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 	s.envs[env.Id] = env
 	s.Unlock()
 
-	//TODO: Return the entire env structure
-	ApiReply(w, http.StatusOK, env.Id)
+	ApiSendData(w, http.StatusOK, env)
 }
 
 func (s *Server) deleteEnvHandler(w http.ResponseWriter, req *http.Request) {
@@ -201,7 +200,7 @@ func (s *Server) deleteEnvHandler(w http.ResponseWriter, req *http.Request) {
 	if !ok {
 		serverLog.Errorf("Env not found", id)
 
-		ApiReply(w, http.StatusNotFound, "Env not found")
+		ApiSendMessage(w, http.StatusNotFound, "Env not found")
 
 		return
 	}
@@ -211,7 +210,7 @@ func (s *Server) deleteEnvHandler(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		serverLog.Errorf("Error terminating env %s: %+v", id, err)
 
-		ApiReply(w, http.StatusBadRequest, "Error terminating env: %s", err)
+		ApiSendMessage(w, http.StatusBadRequest, "Error terminating env: %s", err)
 
 		return
 	}
@@ -220,7 +219,7 @@ func (s *Server) deleteEnvHandler(w http.ResponseWriter, req *http.Request) {
 	delete(s.envs, id)
 	s.Unlock()
 
-	ApiReply(w, http.StatusOK, "Env deleted")
+	ApiSendMessage(w, http.StatusOK, "Env deleted")
 }
 
 func (s *Server) keepaliveEnvHandler(w http.ResponseWriter, req *http.Request) {
@@ -236,7 +235,7 @@ func (s *Server) keepaliveEnvHandler(w http.ResponseWriter, req *http.Request) {
 	if !ok {
 		serverLog.Errorf("Env not found", id)
 
-		ApiReply(w, http.StatusNotFound, "Env not found")
+		ApiSendMessage(w, http.StatusNotFound, "Env not found")
 
 		return
 	}
@@ -248,12 +247,12 @@ func (s *Server) keepaliveEnvHandler(w http.ResponseWriter, req *http.Request) {
 		delete(s.envs, id)
 		s.Unlock()
 
-		ApiReply(w, http.StatusNotFound, "Env is terminating")
+		ApiSendMessage(w, http.StatusNotFound, "Env is terminating")
 
 		return
 	}
 
 	env.KeepAlive()
 
-	ApiReply(w, http.StatusOK, "")
+	ApiSendMessage(w, http.StatusOK, "")
 }

@@ -48,7 +48,8 @@ func newEnvId(name string) string {
 
 // Configured environment
 type Env struct {
-	Id string
+	Id    string
+	Ports map[uint16]uint16
 
 	ed            *envDef
 	ceng          conteng.ContainerEngine
@@ -76,6 +77,7 @@ func NewEnv(params EnvParams) (*Env, error) {
 	imagesToBuild := map[string]*repo.BuildImage{}
 	name2tag := map[string]string{}
 	builtTags := map[string]struct{}{}
+	imgPorts := map[string][]uint16{}
 
 	// First provision images
 	for _, imDef := range params.EnvDef.Images {
@@ -123,6 +125,16 @@ func NewEnv(params EnvParams) (*Env, error) {
 		}
 
 		builtTags[tag] = struct{}{}
+
+		ports, err := params.ContEng.GetImagePorts(tag)
+
+		if err != nil {
+			envLog.Warningf("Error getting exposed ports for %s: %s", tag, err)
+		} else {
+			envLog.Debugf("Exposed ports for %s: %v", tag, ports)
+
+			imgPorts[tag] = ports
+		}
 	}
 
 	// TODO: Fetch images
@@ -142,12 +154,25 @@ func NewEnv(params EnvParams) (*Env, error) {
 
 	var cids []string
 
+	ports := map[uint16]uint16{}
+
 	// Now create containers
 	for _, cont := range params.EnvDef.Containers {
-		// Expose ports
-		ports := map[uint16]uint16{}
+		// Get corresponding image
+		tag, ok := name2tag[cont.Image]
 
-		for _, contPort := range cont.Ports {
+		if !ok {
+			return nil, errors.Errorf("Unknown image: %s", cont.Image)
+		}
+
+		// Expose ports
+		portsToExpose := cont.Ports
+
+		if len(portsToExpose) == 0 {
+			portsToExpose = imgPorts[tag]
+		}
+
+		for _, contPort := range portsToExpose {
 			port, err := params.PortRange.NextPort()
 
 			if err != nil {
@@ -158,13 +183,6 @@ func NewEnv(params EnvParams) (*Env, error) {
 				contPort, port, cont.Name)
 
 			ports[contPort] = port
-		}
-
-		// Get corresponding image
-		tag, ok := name2tag[cont.Image]
-
-		if !ok {
-			return nil, errors.Errorf("Unknown image: %s", cont.Image)
 		}
 
 		cparams := conteng.RunContainerParams{
@@ -187,6 +205,7 @@ func NewEnv(params EnvParams) (*Env, error) {
 
 	env := &Env{
 		Id:            id,
+		Ports:         ports,
 		ed:            params.EnvDef,
 		ceng:          params.ContEng,
 		netId:         netId,

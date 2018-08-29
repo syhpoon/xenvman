@@ -34,12 +34,14 @@ import (
 )
 
 type apiResponse struct {
-	Code    int
-	Message string
+	Code    int         `json:"code"`
+	Message string      `json:"message,omitempty"`
+	Data    interface{} `json:"data,omitempty"`
 }
 
-func ApiReply(w http.ResponseWriter, code int,
+func ApiSendMessage(w http.ResponseWriter, code int,
 	msg string, args ...interface{}) {
+
 	e := apiResponse{
 		Code: code,
 	}
@@ -48,7 +50,18 @@ func ApiReply(w http.ResponseWriter, code int,
 		e.Message = fmt.Sprintf(msg, args...)
 	}
 
-	body, _ := json.MarshalIndent(e, "", "   ")
+	ApiSendReply(w, code, &e)
+}
+
+func ApiSendData(w http.ResponseWriter, code int, data interface{}) {
+	ApiSendReply(w, code, &apiResponse{
+		Code: code,
+		Data: data,
+	})
+}
+
+func ApiSendReply(w http.ResponseWriter, code int, resp *apiResponse) {
+	body, _ := json.MarshalIndent(resp, "", "   ")
 
 	_ = SendHttpResponse(w, code, nil, body)
 }

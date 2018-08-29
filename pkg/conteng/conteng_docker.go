@@ -124,6 +124,10 @@ func (de *DockerEngine) RunContainer(name, tag string,
 
 	ports, bindings, err := nat.ParsePortSpecs(rawPorts)
 
+	if err != nil {
+		return "", errors.Wrapf(err, "Error parsing ports for %s", name)
+	}
+
 	hostCont := &container.HostConfig{
 		NetworkMode:  container.NetworkMode(params.NetworkId),
 		ExtraHosts:   hosts,
@@ -216,6 +220,22 @@ func (de *DockerEngine) RemoveImage(tag string) error {
 	}
 
 	return err
+}
+
+func (de *DockerEngine) GetImagePorts(tag string) ([]uint16, error) {
+	r, _, err := de.cl.ImageInspectWithRaw(de.params.Ctx, tag)
+
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error inspecting image %s", tag)
+	}
+
+	var ports []uint16
+
+	for p := range r.Config.ExposedPorts {
+		ports = append(ports, uint16(p.Int()))
+	}
+
+	return ports, nil
 }
 
 func (de *DockerEngine) Terminate() {

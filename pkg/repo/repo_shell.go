@@ -56,8 +56,7 @@ var shellRepoLog = logger.GetLogger("xenvman.pkg.repo.repo_shell")
 // In case of FETCHING image:
 //
 // FETCH\n
-// IMAGE=<fetch repo and image>\n
-// TAG=<image tag>\n
+// TAG <image tag>\n
 //
 // In case of error:
 //
