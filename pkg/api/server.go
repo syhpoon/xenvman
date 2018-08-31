@@ -54,8 +54,8 @@ type ServerParams struct {
 
 func DefaultServerParams(ctx context.Context) ServerParams {
 	return ServerParams{
-		WriteTimeout: 30 * time.Second,
-		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 5 * time.Minute,
+		ReadTimeout:  60 * time.Second,
 		Ctx:          ctx,
 	}
 }

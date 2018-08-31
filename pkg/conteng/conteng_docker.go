@@ -110,12 +110,14 @@ func (de *DockerEngine) CreateNetwork(name string) (NetworkId, string, error) {
 func (de *DockerEngine) RunContainer(name, tag string,
 	params RunContainerParams) (string, error) {
 
+	// Hosts
 	var hosts []string
 
 	for host, ip := range params.Hosts {
 		hosts = append(hosts, fmt.Sprintf("%s:%s", host, ip))
 	}
 
+	// Ports
 	var rawPorts []string
 
 	for contPort, hostPort := range params.Ports {
@@ -128,11 +130,19 @@ func (de *DockerEngine) RunContainer(name, tag string,
 		return "", errors.Wrapf(err, "Error parsing ports for %s", name)
 	}
 
+	// Environ
+	var environ []string
+
+	for k, v := range params.Environ {
+		environ = append(environ, fmt.Sprintf("%s=%s", k, v))
+	}
+
 	hostCont := &container.HostConfig{
-		NetworkMode:  container.NetworkMode(params.NetworkId),
-		ExtraHosts:   hosts,
-		AutoRemove:   true,
-		PortBindings: bindings,
+		NetworkMode:   container.NetworkMode(params.NetworkId),
+		ExtraHosts:    hosts,
+		AutoRemove:    false,
+		RestartPolicy: container.RestartPolicy{Name: "on-failure"},
+		PortBindings:  bindings,
 	}
 
 	netConf := &network.NetworkingConfig{
@@ -151,8 +161,8 @@ func (de *DockerEngine) RunContainer(name, tag string,
 		AttachStderr: true,
 		Image:        tag,
 		ExposedPorts: ports,
-		//TODO:
-		Cmd: []string{"/bin/sleep", "infinity"},
+		Env:          environ,
+		Cmd:          params.Cmd,
 	}, hostCont, netConf, lib.NewId()[:5])
 
 	if err != nil {

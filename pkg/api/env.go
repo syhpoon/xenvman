@@ -70,12 +70,11 @@ type EnvParams struct {
 }
 
 func NewEnv(params EnvParams) (*Env, error) {
-
 	id := newEnvId(params.EnvDef.Name)
 
 	pimages := map[string]repo.ProvisionedImage{}
 	imagesToBuild := map[string]*repo.BuildImage{}
-	name2tag := map[string]string{}
+	nameTotag := map[string]string{}
 	builtTags := map[string]struct{}{}
 	imgPorts := map[string][]uint16{}
 
@@ -103,7 +102,7 @@ func NewEnv(params EnvParams) (*Env, error) {
 				name, id)
 
 			pimages[tag] = img
-			name2tag[imDef.Name] = tag
+			nameTotag[imDef.Name] = tag
 
 			switch i := img.(type) {
 			case *repo.BuildImage:
@@ -159,7 +158,7 @@ func NewEnv(params EnvParams) (*Env, error) {
 	// Now create containers
 	for _, cont := range params.EnvDef.Containers {
 		// Get corresponding image
-		tag, ok := name2tag[cont.Image]
+		tag, ok := nameTotag[cont.Image]
 
 		if !ok {
 			return nil, errors.Errorf("Unknown image: %s", cont.Image)
@@ -190,6 +189,8 @@ func NewEnv(params EnvParams) (*Env, error) {
 			IP:        ips[cont.Name],
 			Hosts:     hosts,
 			Ports:     ports,
+			Environ:   cont.Environ,
+			Cmd:       cont.Cmd,
 		}
 
 		cid, err := params.ContEng.RunContainer(cont.Name, tag, cparams)

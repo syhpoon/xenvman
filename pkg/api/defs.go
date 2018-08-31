@@ -44,8 +44,9 @@ type imageDef struct {
 type containerDef struct {
 	Name    string            `json:"name"`
 	Image   string            `json:"image"`
-	Env     map[string]string `json:"env"`
-	Volumes map[string]string `json:"volumes"`
+	Environ map[string]string `json:"environ,omitempty"`
+	Cmd     []string          `json:"cmd,omitempty"`
+	Volumes map[string]string `json:"volumes,omitempty"`
 	Ports   []uint16          `json:"ports,omitempty"`
 }
 

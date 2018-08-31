@@ -33,6 +33,8 @@ type RunContainerParams struct {
 	IP        string
 	Hosts     map[string]string // hostname -> IP
 	Ports     map[uint16]uint16 // container port -> host port
+	Environ   map[string]string
+	Cmd       []string
 }
 
 type ContainerEngine interface {
