@@ -22,37 +22,23 @@
  SOFTWARE.
 */
 
-package conteng
+package def
 
-import "io"
-
-type NetworkId = string
-
-type RunContainerFileMounts []struct {
-	HostFile      string
-	ContainerFile string
-	Readonly      bool
+type ContainerFileMounts struct {
+	Path     string `json:"path"`
+	Bytes    []byte `json:"bytes"`
+	ReadOnly bool   `json:"readonly"`
 }
 
-type RunContainerParams struct {
-	NetworkId  NetworkId
-	IP         string
-	Hosts      map[string]string // hostname -> IP
-	Ports      map[uint16]uint16 // container port -> host port
-	Environ    map[string]string
-	Cmd        []string
-	FileMounts RunContainerFileMounts
+type ContainerMounts struct {
+	Files map[string]ContainerFileMounts
 }
 
-type ContainerEngine interface {
-	CreateNetwork(name string) (NetworkId, string, error)
-	BuildImage(tag string, buildContext io.Reader) error
-	GetImagePorts(tag string) ([]uint16, error)
-	RemoveImage(tag string) error
-	RunContainer(name, tag string, params RunContainerParams) (string, error)
-	// Stop and remove
-	RemoveContainer(id string) error
-	RemoveNetwork(id string) error
-
-	Terminate()
+type Container struct {
+	Name    string            `json:"name"`
+	Image   string            `json:"image"`
+	Environ map[string]string `json:"environ,omitempty"`
+	Cmd     []string          `json:"cmd,omitempty"`
+	Ports   []uint16          `json:"ports,omitempty"`
+	Mounts  ContainerMounts   `json:"mounts,omitempty"`
 }

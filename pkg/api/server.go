@@ -35,9 +35,12 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/syhpoon/xenvman/pkg/def"
+	"github.com/syhpoon/xenvman/pkg/env"
+	"github.com/syhpoon/xenvman/pkg/lib"
+
 	"github.com/syhpoon/xenvman/pkg/conteng"
 	"github.com/syhpoon/xenvman/pkg/logger"
-	"github.com/syhpoon/xenvman/pkg/repo"
 )
 
 var serverLog = logger.GetLogger("xenvman.pkg.api.server")
@@ -46,9 +49,10 @@ type ServerParams struct {
 	Listener     net.Listener
 	WriteTimeout time.Duration
 	ReadTimeout  time.Duration
-	Repos        map[string]repo.Repo
 	ContEng      conteng.ContainerEngine
-	PortRange    *PortRange
+	PortRange    *lib.PortRange
+	BaseTplDir   string
+	BaseWsDir    string
 	Ctx          context.Context
 }
 
@@ -64,8 +68,7 @@ type Server struct {
 	router *mux.Router
 	server http.Server
 	params ServerParams
-	repos  map[string]repo.Repo
-	envs   map[string]*Env
+	envs   map[string]*env.Env
 	sync.RWMutex
 }
 
@@ -80,8 +83,7 @@ func NewServer(params ServerParams) *Server {
 			ReadTimeout:  params.ReadTimeout,
 		},
 		params: params,
-		repos:  params.Repos,
-		envs:   map[string]*Env{},
+		envs:   map[string]*env.Env{},
 	}
 }
 
@@ -128,7 +130,7 @@ func (s *Server) setupHandlers() {
 	//s.router.HandleFunc("/apidoc", s.handleRoot)
 
 	//TODO: Web UI on root?
-	//s.router.HandleFunc("/apidoc", s.handleRoot)
+	//s.router.HandleFunc("/", s.handleRoot)
 }
 
 // Body: envDef structure
@@ -145,7 +147,7 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	edef := envDef{}
+	edef := def.Env{}
 
 	if err = json.Unmarshal(body, &edef); err != nil {
 		serverLog.Errorf("Error decoding request body: %s", err)
@@ -156,20 +158,21 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if validErr := edef.Validate(); validErr != nil {
-		serverLog.Errorf("Error validating request body: %s", validErr)
+		serverLog.Errorf("Error validating env def: %s", validErr)
 
-		ApiSendMessage(w, http.StatusBadRequest, "Error validating request body: %s",
+		ApiSendMessage(w, http.StatusBadRequest, "Error validating env: %s",
 			validErr)
 
 		return
 	}
 
-	env, err := NewEnv(EnvParams{
-		EnvDef:    &edef,
-		ContEng:   s.params.ContEng,
-		Repos:     s.repos,
-		PortRange: s.params.PortRange,
-		Ctx:       s.params.Ctx,
+	e, err := env.NewEnv(env.Params{
+		EnvDef:     &edef,
+		ContEng:    s.params.ContEng,
+		PortRange:  s.params.PortRange,
+		BaseTplDir: s.params.BaseTplDir,
+		BaseWsDir:  s.params.BaseWsDir,
+		Ctx:        s.params.Ctx,
 	})
 
 	if err != nil {
@@ -181,10 +184,10 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	s.Lock()
-	s.envs[env.Id] = env
+	s.envs[e.Id] = e
 	s.Unlock()
 
-	ApiSendData(w, http.StatusOK, env)
+	ApiSendData(w, http.StatusOK, e)
 }
 
 func (s *Server) deleteEnvHandler(w http.ResponseWriter, req *http.Request) {

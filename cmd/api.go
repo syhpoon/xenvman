@@ -32,18 +32,17 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/syhpoon/xenvman/pkg/lib"
+
 	"os/signal"
 
 	"strconv"
 
-	"github.com/mitchellh/mapstructure"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/syhpoon/xenvman/pkg/api"
 	"github.com/syhpoon/xenvman/pkg/config"
 	"github.com/syhpoon/xenvman/pkg/conteng"
 	"github.com/syhpoon/xenvman/pkg/logger"
-	"github.com/syhpoon/xenvman/pkg/repo"
 )
 
 var apiLog = logger.GetLogger("xenvman.cmd.api")
@@ -65,16 +64,6 @@ var apiRunCmd = &cobra.Command{
 		// Start API server
 		apiParams := api.DefaultServerParams(ctx)
 
-		if repos, err := parseRepos(); err != nil {
-			apiLog.Errorf("Error parsing repos: %+v", err)
-
-			cancel()
-
-			return
-		} else {
-			apiParams.Repos = repos
-		}
-
 		centCtx, centCancel := context.WithCancel(context.Background())
 
 		if contEng, err := buildContEng(centCtx); err != nil {
@@ -92,6 +81,8 @@ var apiRunCmd = &cobra.Command{
 		}
 
 		apiParams.Listener = listener
+		apiParams.BaseTplDir = config.GetString("tpl.tpl-dir")
+		apiParams.BaseWsDir = config.GetString("tpl.ws-dir")
 
 		// Ports
 		prange, err := parsePorts()
@@ -167,44 +158,7 @@ LOOP:
 	centCancel()
 }
 
-func parseRepos() (map[string]repo.Repo, error) {
-	rawRepos := config.Get("repo")
-	repos := map[string]repo.Repo{}
-
-	switch rr := rawRepos.(type) {
-	case []interface{}:
-		for _, rawRepo := range rr {
-			m := rawRepo.(map[string]interface{})
-
-			name, ok := m["name"].(string)
-
-			if !ok || name == "" {
-				return nil, errors.Errorf("Empty name for %v", m)
-			}
-
-			switch m["type"] {
-			case "shell":
-				if r, err := configureShellRepo(m); err != nil {
-					return nil, err
-				} else {
-					apiLog.Infof("Configured shell repo %s: %s", name, r.String())
-
-					repos[name] = r
-				}
-
-			default:
-				return nil, errors.Errorf("Invalid repo type: %s", m["type"])
-			}
-		}
-	default:
-		return nil, errors.Errorf(
-			"`repo` expected to be an array of tables, got: %T", rawRepos)
-	}
-
-	return repos, nil
-}
-
-func parsePorts() (*api.PortRange, error) {
+func parsePorts() (*lib.PortRange, error) {
 	ports := config.GetStrings("ports-range")
 
 	if len(ports) != 2 {
@@ -227,19 +181,7 @@ func parsePorts() (*api.PortRange, error) {
 		return nil, fmt.Errorf("Port %d should be greater than %d", pMax, pMin)
 	}
 
-	return api.NewPortRange(uint16(pMin), uint16(pMax)), nil
-}
-
-func configureShellRepo(raw map[string]interface{}) (repo.Repo, error) {
-	params := repo.ShellRepoParams{}
-
-	err := mapstructure.Decode(raw, &params)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "Unable to decode shell repo params")
-	}
-
-	return repo.NewShellRepo(params)
+	return lib.NewPortRange(uint16(pMin), uint16(pMax)), nil
 }
 
 func init() {

@@ -22,33 +22,14 @@
  SOFTWARE.
 */
 
-package api
+package def
 
 import (
-	"fmt"
+	"encoding/json"
 	"time"
 
-	"encoding/json"
-
 	"github.com/pkg/errors"
-	"github.com/syhpoon/xenvman/pkg/lib"
 )
-
-type imageDef struct {
-	Name       string                 `json:"name"`
-	Repo       string                 `json:"repo"`
-	Provider   string                 `json:"provider"`
-	Parameters map[string]interface{} `json:"parameters"`
-}
-
-type containerDef struct {
-	Name    string            `json:"name"`
-	Image   string            `json:"image"`
-	Environ map[string]string `json:"environ,omitempty"`
-	Cmd     []string          `json:"cmd,omitempty"`
-	Volumes map[string]string `json:"volumes,omitempty"`
-	Ports   []uint16          `json:"ports,omitempty"`
-}
 
 type Duration time.Duration
 
@@ -83,59 +64,4 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 	default:
 		return errors.New("invalid duration")
 	}
-}
-
-type envDef struct {
-	// Environment name
-	Name string `json:"name"`
-	// Environment description
-	Description string `json:"description,omitempty"`
-	// Images to provision
-	Images []*imageDef `json:"images"`
-	// Containers to create
-	Containers []*containerDef `json:"containers"`
-
-	// Additional env options
-	Options struct {
-		KeepAlive Duration `json:"keep_alive,omitempty"`
-	} `json:"options"`
-}
-
-func (ed *envDef) Validate() error {
-	if ed.Name == "" {
-		return fmt.Errorf("Name is empty")
-	}
-
-	return nil
-}
-
-func (ed *envDef) assignIps(sub string,
-	conts []*containerDef) (map[string]string, map[string]string, error) {
-
-	ipn, err := lib.ParseNet(sub)
-
-	if err != nil {
-		return nil, nil, errors.WithStack(err)
-	}
-
-	// Skip gateway
-	_ = ipn.NextIP()
-
-	ips := map[string]string{}
-	hosts := map[string]string{}
-
-	for _, cont := range conts {
-		ip := ipn.NextIP()
-
-		if ip == nil {
-			return nil, nil, errors.Errorf("Unable to assign IP to container: network %s exhausted", sub)
-		}
-
-		ips[cont.Name] = ip.String()
-		hosts[cont.Name] = ip.String()
-
-		envLog.Debugf("Assigned IP %s to %s", ips[cont.Name], cont.Name)
-	}
-
-	return ips, hosts, nil
 }

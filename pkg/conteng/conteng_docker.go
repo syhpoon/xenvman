@@ -37,6 +37,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
@@ -137,12 +138,25 @@ func (de *DockerEngine) RunContainer(name, tag string,
 		environ = append(environ, fmt.Sprintf("%s=%s", k, v))
 	}
 
+	// Mounts
+	var mounts []mount.Mount
+
+	for _, fileMount := range params.FileMounts {
+		mounts = append(mounts, mount.Mount{
+			Type:     "bind",
+			Source:   fileMount.HostFile,
+			Target:   fileMount.ContainerFile,
+			ReadOnly: fileMount.Readonly,
+		})
+	}
+
 	hostCont := &container.HostConfig{
 		NetworkMode:   container.NetworkMode(params.NetworkId),
 		ExtraHosts:    hosts,
 		AutoRemove:    false,
 		RestartPolicy: container.RestartPolicy{Name: "on-failure"},
 		PortBindings:  bindings,
+		Mounts:        mounts,
 	}
 
 	netConf := &network.NetworkingConfig{

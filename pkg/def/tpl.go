@@ -22,37 +22,11 @@
  SOFTWARE.
 */
 
-package conteng
+package def
 
-import "io"
+type TplParams = map[string]interface{}
 
-type NetworkId = string
-
-type RunContainerFileMounts []struct {
-	HostFile      string
-	ContainerFile string
-	Readonly      bool
-}
-
-type RunContainerParams struct {
-	NetworkId  NetworkId
-	IP         string
-	Hosts      map[string]string // hostname -> IP
-	Ports      map[uint16]uint16 // container port -> host port
-	Environ    map[string]string
-	Cmd        []string
-	FileMounts RunContainerFileMounts
-}
-
-type ContainerEngine interface {
-	CreateNetwork(name string) (NetworkId, string, error)
-	BuildImage(tag string, buildContext io.Reader) error
-	GetImagePorts(tag string) ([]uint16, error)
-	RemoveImage(tag string) error
-	RunContainer(name, tag string, params RunContainerParams) (string, error)
-	// Stop and remove
-	RemoveContainer(id string) error
-	RemoveNetwork(id string) error
-
-	Terminate()
+type Tpl struct {
+	Tpl        string    `json:"tpl"`
+	Parameters TplParams `json:"parameters,omitempty"`
 }

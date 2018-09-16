@@ -22,26 +22,55 @@
  SOFTWARE.
 */
 
-package repo
+package tpl
 
-import "io"
-
-type ImageParams = map[string]interface{}
-
-type ProvisionedImage interface {
-	IsProvisionedImage()
+type ContainerFileMounts struct {
+	Path     string
+	Bytes    []byte
+	ReadOnly bool
 }
 
-type BuildImage struct {
-	// Tar-gzipped directory including Dockerfile and all additional image files
-	BuildContext io.Reader
+type ContainerMounts struct {
+	Files map[string]ContainerFileMounts
 }
 
-func (b *BuildImage) IsProvisionedImage() {}
-
-type FetchImage struct {
-	Repo string
-	Tag  string
+type Container struct {
+	name    string
+	image   string
+	environ map[string]string
+	cmd     []string
+	ports   []uint16
+	mounts  ContainerMounts
 }
 
-func (f *FetchImage) IsProvisionedImage() {}
+func (cont *Container) SetEnv(k, v string) {
+	cont.environ[k] = v
+}
+
+func (cont *Container) SetCmd(cmd ...string) {
+	cont.cmd = cmd
+}
+
+func (cont *Container) SetPorts(ports ...uint16) {
+	cont.ports = ports
+}
+
+func (cont *Container) Name() string {
+	return cont.name
+}
+
+func (cont *Container) Image() string {
+	return cont.image
+}
+
+func (cont *Container) Ports() []uint16 {
+	return cont.ports
+}
+
+func (cont *Container) Environ() map[string]string {
+	return cont.environ
+}
+
+func (cont *Container) Cmd() []string {
+	return cont.cmd
+}

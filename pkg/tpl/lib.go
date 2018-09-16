@@ -22,12 +22,38 @@
  SOFTWARE.
 */
 
-package repo
+package tpl
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
 
-type Repo interface {
-	Provision(provider string, params ImageParams) (ProvisionedImage, error)
+	"path/filepath"
 
-	fmt.Stringer
+	"github.com/pkg/errors"
+)
+
+func getTplPaths(tpl, baseTplDir string) (string, string, error) {
+	tpl = strings.TrimSpace(tpl)
+	tplFile := fmt.Sprintf("%s.tpl.js", tpl)
+
+	if strings.Contains(tplFile, "..") {
+		return "", "",
+			errors.Errorf("Template name must not contain '..': %s", tpl)
+	}
+
+	if strings.HasPrefix(tplFile, "/") {
+		tpl = tpl[1:]
+	}
+
+	jsFile := filepath.Clean(filepath.Join(baseTplDir, tplFile))
+
+	if !strings.HasPrefix(jsFile, baseTplDir) {
+		return "", "", errors.Errorf("Invalid template name: %s", tpl)
+	}
+
+	dataDir := filepath.Clean(filepath.Join(baseTplDir,
+		fmt.Sprintf("%s.tpl.data", tpl)))
+
+	return jsFile, dataDir, nil
 }

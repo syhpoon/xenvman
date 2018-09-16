@@ -22,37 +22,53 @@
  SOFTWARE.
 */
 
-package conteng
+package env
 
-import "io"
+import (
+	"fmt"
+	"time"
 
-type NetworkId = string
+	"github.com/syhpoon/xenvman/pkg/tpl"
 
-type RunContainerFileMounts []struct {
-	HostFile      string
-	ContainerFile string
-	Readonly      bool
+	"github.com/pkg/errors"
+
+	"github.com/syhpoon/xenvman/pkg/lib"
+)
+
+func newEnvId(name string) string {
+	id := lib.NewId()
+	t := time.Now().Format("20060102150405")
+
+	return fmt.Sprintf("%s-%s-%s", name, t, id[:5])
 }
 
-type RunContainerParams struct {
-	NetworkId  NetworkId
-	IP         string
-	Hosts      map[string]string // hostname -> IP
-	Ports      map[uint16]uint16 // container port -> host port
-	Environ    map[string]string
-	Cmd        []string
-	FileMounts RunContainerFileMounts
-}
+func assignIps(sub string, conts []*tpl.Container) (map[string]string, map[string]string, error) {
 
-type ContainerEngine interface {
-	CreateNetwork(name string) (NetworkId, string, error)
-	BuildImage(tag string, buildContext io.Reader) error
-	GetImagePorts(tag string) ([]uint16, error)
-	RemoveImage(tag string) error
-	RunContainer(name, tag string, params RunContainerParams) (string, error)
-	// Stop and remove
-	RemoveContainer(id string) error
-	RemoveNetwork(id string) error
+	ipn, err := lib.ParseNet(sub)
 
-	Terminate()
+	if err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
+
+	// Skip gateway
+	_ = ipn.NextIP()
+
+	ips := map[string]string{}
+	hosts := map[string]string{}
+
+	for _, cont := range conts {
+		ip := ipn.NextIP()
+		name := cont.Name()
+
+		if ip == nil {
+			return nil, nil, errors.Errorf("Unable to assign IP to container: network %s exhausted", sub)
+		}
+
+		ips[name] = ip.String()
+		hosts[name] = ip.String()
+
+		envLog.Debugf("Assigned IP %s to %s", ips[name], name)
+	}
+
+	return ips, hosts, nil
 }

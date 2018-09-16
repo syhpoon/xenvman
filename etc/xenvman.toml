@@ -1,9 +1,7 @@
 [api]
 listen = ":9876"
 
-[[repo]]
-type = "shell"
-name = "shell-repo"
-dirs = ["/home/syhpoon/UNIX/Devel/go/src/github.com/syhpoon/xenvman/repos/shell"]
-provider-file-prefix = "provider-"
+[tpl]
+tpl-dir = "/home/syhpoon/UNIX/Devel/go/src/github.com/syhpoon/xenvman/tmp/base"
+ws-dir = "/home/syhpoon/UNIX/Devel/go/src/github.com/syhpoon/xenvman/tmp/ws"
 

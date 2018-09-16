@@ -22,36 +22,32 @@
  SOFTWARE.
 */
 
-package api
+package env
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-	"github.com/syhpoon/xenvman/pkg/conteng"
 	"github.com/syhpoon/xenvman/pkg/lib"
+
+	"github.com/syhpoon/xenvman/pkg/tpl"
+
+	"github.com/syhpoon/xenvman/pkg/conteng"
+	"github.com/syhpoon/xenvman/pkg/def"
 	"github.com/syhpoon/xenvman/pkg/logger"
-	"github.com/syhpoon/xenvman/pkg/repo"
+
+	"github.com/pkg/errors"
 )
 
 var envLog = logger.GetLogger("xenvman.pkg.api.env")
-
-func newEnvId(name string) string {
-	id := lib.NewId()
-	t := time.Now().Format("20060102150405")
-
-	return fmt.Sprintf("%s-%s-%s", name, t, id[:5])
-}
 
 // Configured environment
 type Env struct {
 	Id    string
 	Ports map[uint16]uint16
 
-	ed            *envDef
+	ed            *def.Env
 	ceng          conteng.ContainerEngine
 	netId         string
 	containers    []string
@@ -61,64 +57,70 @@ type Env struct {
 	sync.RWMutex
 }
 
-type EnvParams struct {
-	EnvDef    *envDef
-	ContEng   conteng.ContainerEngine
-	Repos     map[string]repo.Repo
-	PortRange *PortRange
-	Ctx       context.Context
+type Params struct {
+	EnvDef     *def.Env
+	ContEng    conteng.ContainerEngine
+	PortRange  *lib.PortRange
+	BaseTplDir string
+	BaseWsDir  string
+	Ctx        context.Context
 }
 
-func NewEnv(params EnvParams) (*Env, error) {
+func NewEnv(params Params) (*Env, error) {
 	id := newEnvId(params.EnvDef.Name)
 
-	pimages := map[string]repo.ProvisionedImage{}
-	imagesToBuild := map[string]*repo.BuildImage{}
-	nameTotag := map[string]string{}
-	builtTags := map[string]struct{}{}
+	tplIdx := map[string]int{}
+	imagesToBuild := map[string]*tpl.BuildImage{}
+	imagesToFetch := map[string]*tpl.FetchImage{}
 	imgPorts := map[string][]uint16{}
+	builtTags := map[string]struct{}{}
 
-	// First provision images
-	for _, imDef := range params.EnvDef.Images {
-		rep, ok := params.Repos[imDef.Repo]
+	var containers []*tpl.Container
 
-		if !ok {
-			return nil, errors.Errorf("Unknown repo: %s", imDef.Repo)
-		}
+	// Execute templates
+	for _, template := range params.EnvDef.Templates {
+		idx := tplIdx[template.Tpl]
 
-		img, err := rep.Provision(imDef.Provider, imDef.Parameters)
+		// TODO: Run in parallel
+		t, err := tpl.Execute(id, template.Tpl, idx,
+			tpl.ExecuteParams{
+				BaseTplDir: params.BaseTplDir,
+				BaseWsDir:  params.BaseWsDir,
+				TplParams:  template.Parameters,
+			})
 
 		if err != nil {
-			return nil, errors.Wrapf(err, "Error provisioning image %s",
-				imDef.Name)
-		} else {
-			name := imDef.Name
+			return nil, errors.WithStack(err)
+		}
 
-			if name == "" {
-				name = imDef.Provider
+		tplIdx[template.Tpl] += 1
+
+		// Collect build images
+		for _, bimg := range t.GetBuildImages() {
+			imagesToBuild[bimg.Tag()] = bimg
+
+			// Collect containers
+			for _, c := range bimg.Containers() {
+				containers = append(containers, c)
 			}
+		}
 
-			tag := fmt.Sprintf("xenv-%s-%s:%s-%s", imDef.Repo, imDef.Provider,
-				name, id)
-
-			pimages[tag] = img
-			nameTotag[imDef.Name] = tag
-
-			switch i := img.(type) {
-			case *repo.BuildImage:
-				imagesToBuild[tag] = i
-			case *repo.FetchImage:
-				//TODO
-			default:
-				return nil, errors.Errorf("Uknown provisioned image type: %T", i)
-			}
+		// Collect fetch images
+		for _, fimg := range t.GetFetchImages() {
+			imagesToFetch[fimg.Tag()] = fimg
 		}
 	}
 
 	// Build images
 	for tag, img := range imagesToBuild {
 		//TODO: Run in parallel
-		if err := params.ContEng.BuildImage(tag, img.BuildContext); err != nil {
+		bctx, err := img.BuildContext()
+
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+
+		if err := params.ContEng.BuildImage(tag, bctx); err != nil {
 			//TODO: Clean up
 			return nil, errors.Wrapf(err, "Error building image %s", tag)
 		}
@@ -145,7 +147,7 @@ func NewEnv(params EnvParams) (*Env, error) {
 		return nil, errors.Wrapf(err, "Error creating network")
 	}
 
-	ips, hosts, err := params.EnvDef.assignIps(sub, params.EnvDef.Containers)
+	ips, hosts, err := assignIps(sub, containers)
 
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -156,16 +158,11 @@ func NewEnv(params EnvParams) (*Env, error) {
 	ports := map[uint16]uint16{}
 
 	// Now create containers
-	for _, cont := range params.EnvDef.Containers {
-		// Get corresponding image
-		tag, ok := nameTotag[cont.Image]
-
-		if !ok {
-			return nil, errors.Errorf("Unknown image: %s", cont.Image)
-		}
+	for _, cont := range containers {
+		tag := cont.Image()
 
 		// Expose ports
-		portsToExpose := cont.Ports
+		portsToExpose := cont.Ports()
 
 		if len(portsToExpose) == 0 {
 			portsToExpose = imgPorts[tag]
@@ -186,14 +183,15 @@ func NewEnv(params EnvParams) (*Env, error) {
 
 		cparams := conteng.RunContainerParams{
 			NetworkId: netId,
-			IP:        ips[cont.Name],
+			IP:        ips[cont.Name()],
 			Hosts:     hosts,
 			Ports:     ports,
-			Environ:   cont.Environ,
-			Cmd:       cont.Cmd,
+			Environ:   cont.Environ(),
+			Cmd:       cont.Cmd(),
+			//FileMounts: xformMounts(cont.Mounts.Files),
 		}
 
-		cid, err := params.ContEng.RunContainer(cont.Name, tag, cparams)
+		cid, err := params.ContEng.RunContainer(cont.Name(), tag, cparams)
 
 		if err != nil {
 			return nil, errors.Wrapf(err, "Error running container: %s", cont.Name)
@@ -216,13 +214,24 @@ func NewEnv(params EnvParams) (*Env, error) {
 	}
 
 	if params.EnvDef.Options.KeepAlive != 0 {
-		envLog.Infof("Keep alive for %s = %s", id, params.EnvDef.Options.KeepAlive)
+		envLog.Infof("Keep alive for %s = %s", id,
+			params.EnvDef.Options.KeepAlive)
 
 		go env.keepAliveWatchdog(params.Ctx)
 	}
 
 	return env, nil
 }
+
+/*
+func xformMounts(baseDir string,
+	fmounts map[string]containerFileMounts) conteng.RunContainerFileMounts {
+
+	for path, mnt := range fmounts {
+
+	}
+}
+*/
 
 func (e *Env) IsAlive() bool {
 	e.RLock()

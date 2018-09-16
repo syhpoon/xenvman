@@ -41,9 +41,6 @@
 [submodule "vendor/github.com/mattn/go-isatty"]
 	path = vendor/github.com/mattn/go-isatty
 	url = https://github.com/mattn/go-isatty
-[submodule "vendor/github.com/mitchellh/mapstructure"]
-	path = vendor/github.com/mitchellh/mapstructure
-	url = https://github.com/mitchellh/mapstructure
 [submodule "vendor/github.com/opencontainers/go-digest"]
 	path = vendor/github.com/opencontainers/go-digest
 	url = https://github.com/opencontainers/go-digest
@@ -86,3 +83,30 @@
 [submodule "vendor/gopkg.in/yaml.v2"]
 	path = vendor/gopkg.in/yaml.v2
 	url = https://gopkg.in/yaml.v2
+[submodule "vendor/github.com/dsnet/compress"]
+	path = vendor/github.com/dsnet/compress
+	url = https://github.com/dsnet/compress
+[submodule "vendor/github.com/golang/snappy"]
+	path = vendor/github.com/golang/snappy
+	url = https://github.com/golang/snappy
+[submodule "vendor/github.com/mholt/archiver"]
+	path = vendor/github.com/mholt/archiver
+	url = https://github.com/mholt/archiver
+[submodule "vendor/github.com/nwaples/rardecode"]
+	path = vendor/github.com/nwaples/rardecode
+	url = https://github.com/nwaples/rardecode
+[submodule "vendor/github.com/pierrec/lz4"]
+	path = vendor/github.com/pierrec/lz4
+	url = https://github.com/pierrec/lz4
+[submodule "vendor/github.com/pierrec/xxHash"]
+	path = vendor/github.com/pierrec/xxHash
+	url = https://github.com/pierrec/xxHash
+[submodule "vendor/github.com/robertkrimen/otto"]
+	path = vendor/github.com/robertkrimen/otto
+	url = https://github.com/robertkrimen/otto
+[submodule "vendor/github.com/ulikunitz/xz"]
+	path = vendor/github.com/ulikunitz/xz
+	url = https://github.com/ulikunitz/xz
+[submodule "vendor/gopkg.in/sourcemap.v1"]
+	path = vendor/gopkg.in/sourcemap.v1
+	url = https://gopkg.in/sourcemap.v1

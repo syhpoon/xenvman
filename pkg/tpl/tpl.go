@@ -22,69 +22,57 @@
  SOFTWARE.
 */
 
-package api
+package tpl
 
 import (
 	"fmt"
-	"net"
 	"sync"
 
-	"github.com/pkg/errors"
-	"github.com/syhpoon/xenvman/pkg/lib"
+	"github.com/syhpoon/xenvman/pkg/logger"
 )
 
-type Port = uint16
+var tplLog = logger.GetLogger("xenvman.pkg.tpl.tpl")
 
-type PortRange struct {
-	min  Port
-	max  Port
-	next Port
-	sync.Mutex
+type Tpl struct {
+	envId string
+	name  string
+	idx   int
+
+	// Images to build
+	buildImages []*BuildImage
+
+	// Images to fetch
+	fetchImages []*FetchImage
+
+	dataDir string
+	wsDir   string
+
+	sync.RWMutex
 }
 
-func NewPortRange(min, max Port) *PortRange {
-	return &PortRange{
-		min:  min,
-		next: min,
-		max:  max,
+func (tpl *Tpl) BuildImage(name string) *BuildImage {
+	// xenv-<tpl name>-<image-name>:<env id>-<idx>
+	tag := fmt.Sprintf("xenv-%s-%s:%s-%d", tpl.name, name, tpl.envId, tpl.idx)
+
+	img := &BuildImage{
+		name:       tag,
+		dataDir:    tpl.dataDir,
+		wsDir:      tpl.wsDir,
+		tag:        tag,
+		containers: map[string]*Container{},
 	}
+
+	tpl.Lock()
+	tpl.buildImages = append(tpl.buildImages, img)
+	tpl.Unlock()
+
+	return img
 }
 
-func (pr *PortRange) NextPort() (Port, error) {
-	pr.Lock()
-	defer pr.Unlock()
+func (tpl *Tpl) GetBuildImages() []*BuildImage {
+	return tpl.buildImages
+}
 
-	var span uint16 = 0
-
-	for {
-		if span >= pr.max-pr.min {
-			return 0, errors.Errorf("No free ports found in range %d-%d", pr.min, pr.max)
-		}
-
-		// Reset back to min, some ports may have been freed by now
-		if pr.next > pr.max {
-			pr.next = pr.min
-		}
-
-		l, err := net.Listen("tcp", fmt.Sprintf(":%d", pr.next))
-
-		if err != nil {
-			span++
-
-			if lib.IsErrAddrInUse(err) {
-				continue
-			}
-
-			return 0, err
-		} else {
-			span = 0
-		}
-
-		pr.next += 1
-
-		port := l.Addr().(*net.TCPAddr).Port
-		l.Close()
-
-		return uint16(port), nil
-	}
+func (tpl *Tpl) GetFetchImages() []*FetchImage {
+	return tpl.fetchImages
 }
