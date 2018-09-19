@@ -34,7 +34,6 @@ import (
 )
 
 type apiResponse struct {
-	Code    int         `json:"code"`
 	Message string      `json:"message,omitempty"`
 	Data    interface{} `json:"data,omitempty"`
 }
@@ -42,9 +41,7 @@ type apiResponse struct {
 func ApiSendMessage(w http.ResponseWriter, code int,
 	msg string, args ...interface{}) {
 
-	e := apiResponse{
-		Code: code,
-	}
+	e := apiResponse{}
 
 	if msg != "" {
 		e.Message = fmt.Sprintf(msg, args...)
@@ -55,7 +52,6 @@ func ApiSendMessage(w http.ResponseWriter, code int,
 
 func ApiSendData(w http.ResponseWriter, code int, data interface{}) {
 	ApiSendReply(w, code, &apiResponse{
-		Code: code,
 		Data: data,
 	})
 }

@@ -44,8 +44,8 @@ var envLog = logger.GetLogger("xenvman.pkg.api.env")
 
 // Configured environment
 type Env struct {
-	Id    string
-	Ports map[uint16]uint16
+	Id    string            `json:"id"`
+	Ports map[uint16]uint16 `json:"ports"`
 
 	ed            *def.Env
 	ceng          conteng.ContainerEngine
@@ -176,7 +176,7 @@ func NewEnv(params Params) (*Env, error) {
 			}
 
 			envLog.Debugf("Exposing internal port %d as %d for %s",
-				contPort, port, cont.Name)
+				contPort, port, cont.Name())
 
 			ports[contPort] = port
 		}

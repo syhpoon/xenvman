@@ -22,46 +22,54 @@
  SOFTWARE.
 */
 
-package def
+package client
 
 import (
-	"encoding/json"
-	"time"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 
+	"github.com/json-iterator/go"
 	"github.com/pkg/errors"
 )
 
-type Duration time.Duration
+type Env struct {
+	Id    string            `json:"id"`
+	Ports map[uint16]uint16 `json:"ports"`
 
-func (d Duration) MarshalJSON() ([]byte, error) {
-	return json.Marshal(time.Duration(d))
+	httpClient    http.Client
+	serverAddress string
 }
 
-func (d Duration) String() string {
-	return time.Duration(d).String()
+func (env *Env) Terminate() error {
+	url := fmt.Sprintf("%s/api/v1/env/%s", env.serverAddress, env.Id)
+
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+
+	if err != nil {
+		return errors.Wrapf(err, "Error creating HTTP request to %s", url)
+	}
+
+	resp, err := env.httpClient.Do(req)
+
+	if err != nil {
+		return errors.Wrapf(err, "Error making HTTP request to %s", url)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := ioutil.ReadAll(resp.Body)
+
+		return errors.Errorf("Unexpected HTTP response %d: %s",
+			resp.StatusCode, string(body))
+	}
+
+	return nil
 }
 
-func (d *Duration) UnmarshalJSON(b []byte) error {
-	var v interface{}
-	if err := json.Unmarshal(b, &v); err != nil {
-		return err
-	}
-	switch value := v.(type) {
-	case float64:
-		*d = Duration(time.Duration(value))
+func (env *Env) String() string {
+	b, _ := jsoniter.MarshalIndent(env, "", "   ")
 
-		return nil
-	case string:
-		tmp, err := time.ParseDuration(value)
-
-		if err != nil {
-			return err
-		} else {
-			*d = Duration(tmp)
-		}
-
-		return nil
-	default:
-		return errors.New("invalid duration")
-	}
+	return string(b)
 }

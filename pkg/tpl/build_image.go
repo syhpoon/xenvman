@@ -31,11 +31,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mholt/archiver"
-
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/mholt/archiver"
 	"github.com/pkg/errors"
 )
 

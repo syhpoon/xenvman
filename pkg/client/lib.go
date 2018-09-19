@@ -22,46 +22,21 @@
  SOFTWARE.
 */
 
-package def
+package client
 
 import (
-	"encoding/json"
-	"time"
+	"encoding/base64"
+	"io/ioutil"
 
 	"github.com/pkg/errors"
 )
 
-type Duration time.Duration
+func FileToBase64(path string) string {
+	b, err := ioutil.ReadFile(path)
 
-func (d Duration) MarshalJSON() ([]byte, error) {
-	return json.Marshal(time.Duration(d))
-}
-
-func (d Duration) String() string {
-	return time.Duration(d).String()
-}
-
-func (d *Duration) UnmarshalJSON(b []byte) error {
-	var v interface{}
-	if err := json.Unmarshal(b, &v); err != nil {
-		return err
+	if err != nil {
+		panic(errors.Wrapf(err, "Error reading file"))
 	}
-	switch value := v.(type) {
-	case float64:
-		*d = Duration(time.Duration(value))
 
-		return nil
-	case string:
-		tmp, err := time.ParseDuration(value)
-
-		if err != nil {
-			return err
-		} else {
-			*d = Duration(tmp)
-		}
-
-		return nil
-	default:
-		return errors.New("invalid duration")
-	}
+	return base64.StdEncoding.EncodeToString(b)
 }

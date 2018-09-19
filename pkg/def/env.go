@@ -28,6 +28,10 @@ import (
 	"fmt"
 )
 
+type EnvOptions struct {
+	KeepAlive Duration `json:"keep_alive,omitempty"`
+}
+
 type Env struct {
 	// Environment name
 	Name string `json:"name"`
@@ -37,14 +41,12 @@ type Env struct {
 	Templates []*Tpl `json:"templates,omitempty"`
 
 	// Additional env options
-	Options struct {
-		KeepAlive Duration `json:"keep_alive,omitempty"`
-	} `json:"options"`
+	Options *EnvOptions `json:"options"`
 }
 
 func (ed *Env) Validate() error {
 	if ed.Name == "" {
-		return fmt.Errorf("Name is empty")
+		return fmt.Errorf("Env name is empty")
 	}
 
 	return nil

@@ -25,8 +25,9 @@
 package tpl
 
 import (
-	"encoding/base64"
 	"fmt"
+
+	"encoding/base64"
 
 	"github.com/robertkrimen/otto"
 )

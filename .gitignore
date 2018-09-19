@@ -8,6 +8,7 @@
 .idea/
 cmd/xenvman
 repos/
+etc/xenvman.toml.my
 
 tmp/
 CALL.json

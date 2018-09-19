@@ -1,7 +1,2 @@
 [api]
 listen = ":9876"
-
-[tpl]
-tpl-dir = "/home/syhpoon/UNIX/Devel/go/src/github.com/syhpoon/xenvman/tmp/base"
-ws-dir = "/home/syhpoon/UNIX/Devel/go/src/github.com/syhpoon/xenvman/tmp/ws"
-
