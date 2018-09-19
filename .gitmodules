@@ -110,3 +110,15 @@
 [submodule "vendor/gopkg.in/sourcemap.v1"]
 	path = vendor/gopkg.in/sourcemap.v1
 	url = https://gopkg.in/sourcemap.v1
+[submodule "vendor/github.com/json-iterator/go"]
+	path = vendor/github.com/json-iterator/go
+	url = https://github.com/json-iterator/go
+[submodule "vendor/github.com/mitchellh/mapstructure"]
+	path = vendor/github.com/mitchellh/mapstructure
+	url = https://github.com/mitchellh/mapstructure
+[submodule "vendor/github.com/modern-go/concurrent"]
+	path = vendor/github.com/modern-go/concurrent
+	url = https://github.com/modern-go/concurrent
+[submodule "vendor/github.com/modern-go/reflect2"]
+	path = vendor/github.com/modern-go/reflect2
+	url = https://github.com/modern-go/reflect2
