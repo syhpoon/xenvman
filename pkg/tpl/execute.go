@@ -60,7 +60,7 @@ func Execute(envId, tplName string, tplIndex int, params ExecuteParams) (tpl *Tp
 		return nil, errors.WithStack(err)
 	}
 
-	tplLog.Debugf("Executing tpl from %s", tplName)
+	tplLog.Debugf("Executing tpl from %s (%s)", tplName, jsFile)
 
 	bytes, err := ioutil.ReadFile(jsFile)
 

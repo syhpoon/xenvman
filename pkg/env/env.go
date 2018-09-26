@@ -93,7 +93,7 @@ func NewEnv(params Params) (*Env, error) {
 			return nil, errors.WithStack(err)
 		}
 
-		tplIdx[template.Tpl] += 1
+		tplIdx[template.Tpl]++
 
 		// Collect build images
 		for _, bimg := range t.GetBuildImages() {
@@ -108,6 +108,11 @@ func NewEnv(params Params) (*Env, error) {
 		// Collect fetch images
 		for _, fimg := range t.GetFetchImages() {
 			imagesToFetch[fimg.Tag()] = fimg
+
+			// Collect containers
+			for _, c := range fimg.Containers() {
+				containers = append(containers, c)
+			}
 		}
 	}
 
@@ -138,7 +143,13 @@ func NewEnv(params Params) (*Env, error) {
 		}
 	}
 
-	// TODO: Fetch images
+	// Fetch images
+	for tag := range imagesToFetch {
+		if err := params.ContEng.FetchImage(tag); err != nil {
+			//TODO: Clean up
+			return nil, errors.Wrapf(err, "Error fetching image %s", tag)
+		}
+	}
 
 	// Create network
 	netId, sub, err := params.ContEng.CreateNetwork(id)
@@ -195,9 +206,9 @@ func NewEnv(params Params) (*Env, error) {
 
 		if err != nil {
 			return nil, errors.Wrapf(err, "Error running container: %s", cont.Name)
-		} else {
-			cids = append(cids, cid)
 		}
+
+		cids = append(cids, cid)
 	}
 
 	envLog.Infof("New env created: %s", id)
@@ -308,7 +319,7 @@ func (e *Env) keepAliveWatchdog(ctx context.Context) {
 		case <-keepAliveTimer.C:
 			envLog.Infof("Keep alive timeout triggered for %s, terminating", e.Id)
 
-			e.Terminate()
+			_ = e.Terminate()
 
 			return
 		}

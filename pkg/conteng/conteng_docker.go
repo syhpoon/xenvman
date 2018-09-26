@@ -30,16 +30,22 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 
+	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
 
+	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/registry"
 	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
 	"github.com/syhpoon/xenvman/pkg/lib"
@@ -207,10 +213,10 @@ func (de *DockerEngine) RemoveNetwork(id string) error {
 	return de.cl.NetworkRemove(de.params.Ctx, id)
 }
 
-func (de *DockerEngine) BuildImage(tag string, buildContext io.Reader) error {
+func (de *DockerEngine) BuildImage(imgName string, buildContext io.Reader) error {
 	opts := types.ImageBuildOptions{
 		NetworkMode:    "bridge",
-		Tags:           []string{tag},
+		Tags:           []string{imgName},
 		Remove:         true,
 		ForceRemove:    true,
 		SuppressOutput: true,
@@ -226,21 +232,39 @@ func (de *DockerEngine) BuildImage(tag string, buildContext io.Reader) error {
 		return errors.Errorf("Error from Docker server: %s", rerr)
 	}
 
-	dockerLog.Debugf("Image built: %s", tag)
+	dockerLog.Debugf("Image built: %s", imgName)
 
 	return err
 }
 
-func (de *DockerEngine) RemoveImage(tag string) error {
+func (de *DockerEngine) RemoveImage(imgName string) error {
 	opts := types.ImageRemoveOptions{
 		Force:         true,
 		PruneChildren: true,
 	}
 
-	_, err := de.cl.ImageRemove(de.params.Ctx, tag, opts)
+	_, err := de.cl.ImageRemove(de.params.Ctx, imgName, opts)
 
 	if err == nil {
-		dockerLog.Debugf("Image removed: %s", tag)
+		dockerLog.Debugf("Image removed: %s", imgName)
+	}
+
+	return err
+}
+
+func (de *DockerEngine) FetchImage(imgName string) error {
+	auth, err := de.getAuthForImage(imgName, "")
+
+	if err != nil {
+		return err
+	}
+
+	_, err = de.cl.ImagePull(de.params.Ctx, imgName, types.ImagePullOptions{
+		RegistryAuth: auth,
+	})
+
+	if err == nil {
+		dockerLog.Debugf("Image fetched: %s", imgName)
 	}
 
 	return err
@@ -349,4 +373,75 @@ func (de *DockerEngine) getSubNet() (string, error) {
 	}
 
 	return netaddr(), nil
+}
+
+// TODO: Pretty naive implementation and will likely not work in all the cases
+func (de *DockerEngine) getAuthForImage(imageName, file string) (string, error) {
+	type ConfigFile struct {
+		AuthConfigs map[string]types.AuthConfig `json:"auths"`
+	}
+
+	ref, err := reference.ParseNormalizedNamed(imageName)
+
+	if err != nil {
+		return "", errors.Wrapf(err, "Error parsing image name %s", imageName)
+	}
+
+	repoInfo, err := registry.ParseRepositoryInfo(ref)
+	if err != nil {
+		return "", errors.Wrapf(err, "Error parsing repository %s", imageName)
+	}
+
+	if file == "" {
+		file = filepath.Join(os.Getenv("HOME"), ".docker", "config.json")
+	}
+
+	b, err := ioutil.ReadFile(file)
+
+	if err != nil {
+		return "", errors.Wrapf(err, "Error reading docker config %s", file)
+	}
+
+	conf := &ConfigFile{}
+
+	err = json.Unmarshal(b, conf)
+
+	if err != nil {
+		return "", errors.Wrapf(err, "Error parsing docker config %s", file)
+	}
+
+	ac := &types.AuthConfig{
+		ServerAddress: repoInfo.Index.Name,
+	}
+
+	authConf := conf.AuthConfigs[repoInfo.Index.Name]
+
+	if authConf.Username != "" {
+		ac.Username = authConf.Username
+	}
+
+	if authConf.Password != "" {
+		ac.Password = authConf.Password
+	}
+
+	if ac.Username == "" {
+		auth, err := base64.StdEncoding.DecodeString(authConf.Auth)
+
+		if err != nil {
+			return "", errors.Wrap(err, "Error decoding auth entry")
+		}
+
+		split := strings.Split(string(auth), ":")
+
+		if len(split) != 2 {
+			return "", errors.Errorf("Invalid auth entry format: %s", auth)
+		}
+
+		ac.Username = split[0]
+		ac.Password = split[1]
+	}
+
+	b, _ = json.Marshal(ac)
+
+	return base64.StdEncoding.EncodeToString(b), nil
 }

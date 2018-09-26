@@ -69,6 +69,19 @@ func (tpl *Tpl) BuildImage(name string) *BuildImage {
 	return img
 }
 
+func (tpl *Tpl) FetchImage(tag string) *FetchImage {
+	img := &FetchImage{
+		tag:        tag,
+		containers: map[string]*Container{},
+	}
+
+	tpl.Lock()
+	tpl.fetchImages = append(tpl.fetchImages, img)
+	tpl.Unlock()
+
+	return img
+}
+
 func (tpl *Tpl) GetBuildImages() []*BuildImage {
 	return tpl.buildImages
 }

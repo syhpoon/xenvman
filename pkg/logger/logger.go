@@ -31,7 +31,7 @@ import (
 
 // Set default logger
 func init() {
-	loggo.ReplaceDefaultWriter(writers.NewStderrWriter())
+	_, _ = loggo.ReplaceDefaultWriter(writers.NewStderrWriter())
 	loggo.GetLogger("").SetLogLevel(loggo.TRACE)
 }
 

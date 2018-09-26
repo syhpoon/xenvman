@@ -56,6 +56,10 @@ func libType() map[string]interface{} {
 }
 
 func jsEnsureString(name string, obj otto.Value) {
+	if obj.IsNull() || obj.IsUndefined() {
+		return
+	}
+
 	v, err := obj.Export()
 
 	if err != nil {
@@ -70,6 +74,10 @@ func jsEnsureString(name string, obj otto.Value) {
 }
 
 func jsEnsureArrayOfStrings(name string, obj otto.Value) {
+	if obj.IsNull() || obj.IsUndefined() {
+		return
+	}
+
 	v, err := obj.Export()
 
 	if err != nil {
@@ -113,6 +121,6 @@ func jsFromBase64(name, obj otto.Value) []byte {
 }
 
 func setupLib(vm *otto.Otto) {
-	vm.Set("lib", libBase())
-	vm.Set("type", libType())
+	_ = vm.Set("lib", libBase())
+	_ = vm.Set("type", libType())
 }

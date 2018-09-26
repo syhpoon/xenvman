@@ -25,9 +25,26 @@
 package tpl
 
 type FetchImage struct {
-	tag string
+	tag        string
+	containers map[string]*Container
 }
 
 func (img *FetchImage) Tag() string {
 	return img.tag
+}
+
+func (img *FetchImage) Containers() map[string]*Container {
+	return img.containers
+}
+
+func (img *FetchImage) NewContainer(name string) *Container {
+	cont := &Container{
+		name:    name,
+		image:   img.tag,
+		environ: map[string]string{},
+	}
+
+	img.containers[name] = cont
+
+	return cont
 }

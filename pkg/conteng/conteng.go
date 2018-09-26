@@ -53,6 +53,7 @@ type ContainerEngine interface {
 	// Stop and remove
 	RemoveContainer(id string) error
 	RemoveNetwork(id string) error
+	FetchImage(tag string) error
 
 	Terminate()
 }

@@ -94,12 +94,12 @@ func (s *Server) Run(wg *sync.WaitGroup) {
 	// Shutdown http server upon global signal
 	go func() {
 		<-s.params.Ctx.Done()
-		s.server.Shutdown(s.params.Ctx)
+		_ = s.server.Shutdown(s.params.Ctx)
 
 		s.Lock()
 
-		for _, env := range s.envs {
-			env.Terminate()
+		for _, e := range s.envs {
+			_ = e.Terminate()
 		}
 
 		s.Unlock()
@@ -110,7 +110,9 @@ func (s *Server) Run(wg *sync.WaitGroup) {
 	serverLog.Infof("Starting API server at %s",
 		s.params.Listener.Addr().String())
 
-	s.server.Serve(s.params.Listener)
+	if err := s.server.Serve(s.params.Listener); err != nil {
+		panic(err.Error())
+	}
 }
 
 func (s *Server) setupHandlers() {

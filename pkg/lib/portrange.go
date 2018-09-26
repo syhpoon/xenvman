@@ -53,7 +53,7 @@ func (pr *PortRange) NextPort() (Port, error) {
 	pr.Lock()
 	defer pr.Unlock()
 
-	var span uint16 = 0
+	var span uint16
 
 	for {
 		if span >= pr.max-pr.min {
@@ -75,11 +75,11 @@ func (pr *PortRange) NextPort() (Port, error) {
 			}
 
 			return 0, err
-		} else {
-			span = 0
 		}
 
-		pr.next += 1
+		span = 0
+
+		pr.next++
 
 		port := l.Addr().(*net.TCPAddr).Port
 		l.Close()
