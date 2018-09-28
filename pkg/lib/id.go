@@ -34,3 +34,7 @@ func NewId() string {
 	id, _ := uuid.NewV4()
 	return strings.Replace(id.String(), "-", "", -1)
 }
+
+func NewIdShort() string {
+	return NewId()[:5]
+}

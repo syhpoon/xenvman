@@ -28,10 +28,8 @@ import (
 	"bufio"
 	"bytes"
 	"io"
-	"os"
-	"strings"
-
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/mholt/archiver"
@@ -39,27 +37,29 @@ import (
 )
 
 type BuildImage struct {
-	name    string
-	dataDir string
-	wsDir   string
-	tag     string
-
-	containers map[string]*Container
+	*Image
 }
 
 // Copy a file/dir from data dir to workspace dir
-func (img *BuildImage) CopyDataToWorkspace(objs ...string) {
+func (img *Image) CopyDataToWorkspace(objs ...string) {
 	for _, obj := range objs {
 		if obj == "*" {
+			imgLog.Debugf("Copying everything from %s to %s for %s",
+				img.dataDir, img.wsDir, img.envId)
+
 			if err := Copy(img.dataDir, img.wsDir); err != nil {
 				panic(errors.Wrapf(err, "Error copying data to workspace"))
 			}
+
+			return
 		} else {
 			dataPath := filepath.Clean(filepath.Join(img.dataDir, obj))
 			wsPath := filepath.Clean(filepath.Join(img.wsDir, obj))
 
-			img.verifyPath(dataPath, img.dataDir)
-			img.verifyPath(wsPath, img.wsDir)
+			verifyPath(dataPath, img.dataDir)
+			verifyPath(wsPath, img.wsDir)
+
+			imgLog.Debugf("Copying %s to %s for %s", dataPath, wsPath, img.envId)
 
 			if err := Copy(dataPath, wsPath); err != nil {
 				panic(errors.Wrapf(err, "Error copying data to workspace"))
@@ -70,8 +70,7 @@ func (img *BuildImage) CopyDataToWorkspace(objs ...string) {
 
 func (img *BuildImage) AddFileToWorkspace(file string, data interface{}, mode int) {
 	path := filepath.Clean(filepath.Join(img.wsDir, file))
-
-	img.verifyPath(path, img.wsDir)
+	verifyPath(path, img.wsDir)
 
 	var bs []byte
 
@@ -88,26 +87,6 @@ func (img *BuildImage) AddFileToWorkspace(file string, data interface{}, mode in
 	if err := ioutil.WriteFile(path, bs, os.FileMode(mode)); err != nil {
 		panic(errors.Wrapf(err, "Error copying file %s", file))
 	}
-}
-
-func (img *BuildImage) NewContainer(name string) *Container {
-	cont := &Container{
-		name:    name,
-		image:   img.tag,
-		environ: map[string]string{},
-	}
-
-	img.containers[name] = cont
-
-	return cont
-}
-
-func (img *BuildImage) Tag() string {
-	return img.tag
-}
-
-func (img *BuildImage) Containers() map[string]*Container {
-	return img.containers
 }
 
 func (img *BuildImage) BuildContext() (io.Reader, error) {
@@ -135,10 +114,4 @@ func (img *BuildImage) BuildContext() (io.Reader, error) {
 	out.Flush()
 
 	return bytes.NewReader(b.Bytes()), nil
-}
-
-func (img *BuildImage) verifyPath(path, base string) {
-	if !strings.HasPrefix(path, base) {
-		panic(errors.Errorf("Invalid path: %s", path))
-	}
 }

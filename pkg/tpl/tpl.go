@@ -26,8 +26,11 @@ package tpl
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 
+	"github.com/syhpoon/xenvman/pkg/lib"
 	"github.com/syhpoon/xenvman/pkg/logger"
 )
 
@@ -44,23 +47,29 @@ type Tpl struct {
 	// Images to fetch
 	fetchImages []*FetchImage
 
-	dataDir string
-	wsDir   string
+	dataDir  string
+	wsDir    string
+	mountDir string
 
 	sync.RWMutex
 }
 
 func (tpl *Tpl) BuildImage(name string) *BuildImage {
 	// xenv-<tpl name>-<image-name>:<env id>-<idx>
-	tag := fmt.Sprintf("xenv-%s-%s:%s-%d", tpl.name, name, tpl.envId, tpl.idx)
+	imgName := fmt.Sprintf("xenv-%s-%s:%s-%d",
+		tpl.name, name, tpl.envId, tpl.idx)
+
+	wsDir := filepath.Join(tpl.wsDir, imgName)
+
+	if err := os.MkdirAll(wsDir, 0755); err != nil {
+		panic(fmt.Sprintf("%+v", err))
+	}
 
 	img := &BuildImage{
-		name:       tag,
-		dataDir:    tpl.dataDir,
-		wsDir:      tpl.wsDir,
-		tag:        tag,
-		containers: map[string]*Container{},
+		Image: newImage(tpl.envId, imgName, wsDir, tpl.mountDir, tpl.dataDir),
 	}
+
+	tplLog.Debugf("[%s] Building image %s", tpl.envId, imgName)
 
 	tpl.Lock()
 	tpl.buildImages = append(tpl.buildImages, img)
@@ -69,11 +78,18 @@ func (tpl *Tpl) BuildImage(name string) *BuildImage {
 	return img
 }
 
-func (tpl *Tpl) FetchImage(tag string) *FetchImage {
-	img := &FetchImage{
-		tag:        tag,
-		containers: map[string]*Container{},
+func (tpl *Tpl) FetchImage(imgName string) *FetchImage {
+	wsDir := filepath.Join(tpl.wsDir, fmt.Sprintf("%s-%s", imgName, lib.NewIdShort()))
+
+	if err := os.MkdirAll(wsDir, 0755); err != nil {
+		panic(fmt.Sprintf("%+v", err))
 	}
+
+	img := &FetchImage{
+		Image: newImage(tpl.envId, imgName, wsDir, tpl.mountDir, tpl.dataDir),
+	}
+
+	tplLog.Debugf("[%s] Fetching image %s", tpl.envId, imgName)
 
 	tpl.Lock()
 	tpl.fetchImages = append(tpl.fetchImages, img)

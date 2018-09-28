@@ -53,6 +53,7 @@ type ServerParams struct {
 	PortRange    *lib.PortRange
 	BaseTplDir   string
 	BaseWsDir    string
+	BaseMountDir string
 	Ctx          context.Context
 }
 
@@ -111,7 +112,7 @@ func (s *Server) Run(wg *sync.WaitGroup) {
 		s.params.Listener.Addr().String())
 
 	if err := s.server.Serve(s.params.Listener); err != nil {
-		panic(err.Error())
+		serverLog.Errorf("Error running server: %s", err)
 	}
 }
 
@@ -169,12 +170,13 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	e, err := env.NewEnv(env.Params{
-		EnvDef:     &edef,
-		ContEng:    s.params.ContEng,
-		PortRange:  s.params.PortRange,
-		BaseTplDir: s.params.BaseTplDir,
-		BaseWsDir:  s.params.BaseWsDir,
-		Ctx:        s.params.Ctx,
+		EnvDef:       &edef,
+		ContEng:      s.params.ContEng,
+		PortRange:    s.params.PortRange,
+		BaseTplDir:   s.params.BaseTplDir,
+		BaseWsDir:    s.params.BaseWsDir,
+		BaseMountDir: s.params.BaseMountDir,
+		Ctx:          s.params.Ctx,
 	})
 
 	if err != nil {

@@ -58,12 +58,13 @@ type Env struct {
 }
 
 type Params struct {
-	EnvDef     *def.Env
-	ContEng    conteng.ContainerEngine
-	PortRange  *lib.PortRange
-	BaseTplDir string
-	BaseWsDir  string
-	Ctx        context.Context
+	EnvDef       *def.Env
+	ContEng      conteng.ContainerEngine
+	PortRange    *lib.PortRange
+	BaseTplDir   string
+	BaseWsDir    string
+	BaseMountDir string
+	Ctx          context.Context
 }
 
 func NewEnv(params Params) (*Env, error) {
@@ -84,9 +85,10 @@ func NewEnv(params Params) (*Env, error) {
 		// TODO: Run in parallel
 		t, err := tpl.Execute(id, template.Tpl, idx,
 			tpl.ExecuteParams{
-				BaseTplDir: params.BaseTplDir,
-				BaseWsDir:  params.BaseWsDir,
-				TplParams:  template.Parameters,
+				BaseTplDir:   params.BaseTplDir,
+				BaseWsDir:    params.BaseWsDir,
+				BaseMountDir: params.BaseMountDir,
+				TplParams:    template.Parameters,
 			})
 
 		if err != nil {
@@ -97,7 +99,7 @@ func NewEnv(params Params) (*Env, error) {
 
 		// Collect build images
 		for _, bimg := range t.GetBuildImages() {
-			imagesToBuild[bimg.Tag()] = bimg
+			imagesToBuild[bimg.Name()] = bimg
 
 			// Collect containers
 			for _, c := range bimg.Containers() {
@@ -107,7 +109,7 @@ func NewEnv(params Params) (*Env, error) {
 
 		// Collect fetch images
 		for _, fimg := range t.GetFetchImages() {
-			imagesToFetch[fimg.Tag()] = fimg
+			imagesToFetch[fimg.Name()] = fimg
 
 			// Collect containers
 			for _, c := range fimg.Containers() {
@@ -193,13 +195,13 @@ func NewEnv(params Params) (*Env, error) {
 		}
 
 		cparams := conteng.RunContainerParams{
-			NetworkId: netId,
-			IP:        ips[cont.Name()],
-			Hosts:     hosts,
-			Ports:     ports,
-			Environ:   cont.Environ(),
-			Cmd:       cont.Cmd(),
-			//FileMounts: xformMounts(cont.Mounts.Files),
+			NetworkId:  netId,
+			IP:         ips[cont.Name()],
+			Hosts:      hosts,
+			Ports:      ports,
+			Environ:    cont.Environ(),
+			Cmd:        cont.Cmd(),
+			FileMounts: cont.Mounts(),
 		}
 
 		cid, err := params.ContEng.RunContainer(cont.Name(), tag, cparams)
@@ -233,16 +235,6 @@ func NewEnv(params Params) (*Env, error) {
 
 	return env, nil
 }
-
-/*
-func xformMounts(baseDir string,
-	fmounts map[string]containerFileMounts) conteng.RunContainerFileMounts {
-
-	for path, mnt := range fmounts {
-
-	}
-}
-*/
 
 func (e *Env) IsAlive() bool {
 	e.RLock()

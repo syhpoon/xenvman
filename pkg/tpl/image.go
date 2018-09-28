@@ -25,48 +25,62 @@
 package tpl
 
 import (
-	"fmt"
-	"os"
-	"strings"
-
 	"path/filepath"
 
-	"github.com/pkg/errors"
+	"github.com/syhpoon/xenvman/pkg/conteng"
+	"github.com/syhpoon/xenvman/pkg/lib"
+	"github.com/syhpoon/xenvman/pkg/logger"
 )
 
-func getTplPaths(tpl, baseTplDir string) (string, string, error) {
-	tpl = strings.TrimSpace(tpl)
-	tplFile := fmt.Sprintf("%s.tpl.js", tpl)
+var imgLog = logger.GetLogger("xenvman.pkg.tpl.image")
 
-	if strings.Contains(tplFile, "..") {
-		return "", "",
-			errors.Errorf("Template name must not contain '..': %s", tpl)
-	}
-
-	if strings.HasPrefix(tplFile, "/") {
-		tpl = tpl[1:]
-	}
-
-	jsFile := filepath.Clean(filepath.Join(baseTplDir, tplFile))
-
-	if !strings.HasPrefix(jsFile, baseTplDir) {
-		return "", "", errors.Errorf("Invalid template name: %s", tpl)
-	}
-
-	dataDir := filepath.Clean(filepath.Join(baseTplDir,
-		fmt.Sprintf("%s.tpl.data", tpl)))
-
-	return jsFile, dataDir, nil
+type Image struct {
+	envId      string
+	name       string
+	dataDir    string
+	wsDir      string
+	mountDir   string
+	containers map[string]*Container
+	mounts     []*conteng.ContainerFileMount
 }
 
-func makeDir(path string) {
-	if err := os.MkdirAll(path, 0755); err != nil {
-		panic(fmt.Sprintf("%v", errors.Wrapf(err, "Error creating dir %s", path)))
+func newImage(envId, name, wsDir, mountDir, dataDir string) *Image {
+	return &Image{
+		envId:      envId,
+		name:       name,
+		wsDir:      wsDir,
+		mountDir:   mountDir,
+		dataDir:    dataDir,
+		containers: map[string]*Container{},
 	}
 }
 
-func verifyPath(path, base string) {
-	if !strings.HasPrefix(path, base) {
-		panic(errors.Errorf("Invalid path: %s", path))
+func (img *Image) NewContainer(name string) *Container {
+
+	mountDir := filepath.Join(img.mountDir, name, lib.NewIdShort())
+	makeDir(mountDir)
+
+	cont := &Container{
+		envId:    img.envId,
+		name:     name,
+		image:    img.name,
+		environ:  map[string]string{},
+		mountDir: mountDir,
+		dataDir:  img.dataDir,
 	}
+
+	imgLog.Debugf("[%s] Creating new container for %s, %s",
+		img.envId, name, img.name)
+
+	img.containers[name] = cont
+
+	return cont
+}
+
+func (img *Image) Name() string {
+	return img.name
+}
+
+func (img *Image) Containers() map[string]*Container {
+	return img.containers
 }

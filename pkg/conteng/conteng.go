@@ -28,7 +28,7 @@ import "io"
 
 type NetworkId = string
 
-type RunContainerFileMounts []struct {
+type ContainerFileMount struct {
 	HostFile      string
 	ContainerFile string
 	Readonly      bool
@@ -41,7 +41,7 @@ type RunContainerParams struct {
 	Ports      map[uint16]uint16 // container port -> host port
 	Environ    map[string]string
 	Cmd        []string
-	FileMounts RunContainerFileMounts
+	FileMounts []*ContainerFileMount
 }
 
 type ContainerEngine interface {

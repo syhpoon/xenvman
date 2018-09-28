@@ -37,9 +37,10 @@ import (
 const executeFunctionName = "execute"
 
 type ExecuteParams struct {
-	BaseTplDir string
-	BaseWsDir  string
-	TplParams  def.TplParams
+	BaseTplDir   string
+	BaseWsDir    string
+	BaseMountDir string
+	TplParams    def.TplParams
 }
 
 func Execute(envId, tplName string, tplIndex int, params ExecuteParams) (tpl *Tpl, err error) {
@@ -78,12 +79,15 @@ func Execute(envId, tplName string, tplIndex int, params ExecuteParams) (tpl *Tp
 	wsDir := filepath.Join(params.BaseWsDir, envId, tplName,
 		fmt.Sprintf("%d", tplIndex))
 
+	mountDir := filepath.Join(params.BaseMountDir, envId, "mounts")
+
 	tpl = &Tpl{
-		envId:   envId,
-		name:    tplName,
-		idx:     tplIndex,
-		dataDir: dataDir,
-		wsDir:   wsDir,
+		envId:    envId,
+		name:     tplName,
+		idx:      tplIndex,
+		dataDir:  dataDir,
+		wsDir:    wsDir,
+		mountDir: mountDir,
 	}
 
 	_, err = vm.Call(executeFunctionName, nil, tpl, params.TplParams)

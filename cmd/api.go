@@ -29,19 +29,17 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"sync"
 	"syscall"
 
-	"github.com/syhpoon/xenvman/pkg/lib"
-
 	"os/signal"
-
-	"strconv"
 
 	"github.com/spf13/cobra"
 	"github.com/syhpoon/xenvman/pkg/api"
 	"github.com/syhpoon/xenvman/pkg/config"
 	"github.com/syhpoon/xenvman/pkg/conteng"
+	"github.com/syhpoon/xenvman/pkg/lib"
 	"github.com/syhpoon/xenvman/pkg/logger"
 )
 
@@ -83,6 +81,7 @@ var apiRunCmd = &cobra.Command{
 		apiParams.Listener = listener
 		apiParams.BaseTplDir = config.GetString("tpl.tpl-dir")
 		apiParams.BaseWsDir = config.GetString("tpl.ws-dir")
+		apiParams.BaseMountDir = config.GetString("tpl.mount-dir")
 
 		// Ports
 		prange, err := parsePorts()
