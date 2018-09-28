@@ -2,7 +2,7 @@
 
 set -e
 
-dirs=$(find . -maxdepth 1 -type d -and -not -path '*/\.*' | grep -Ev 'vendor|etc|tmp|repos' | grep -v "^.$")
+dirs=$(find . -maxdepth 1 -type d -and -not -path '*/\.*' | grep -Ev 'vendor|etc|tmp|docs' | grep -v "^.$")
 
 for dir in ${dirs}; do
    echo "*** Formatting $dir"

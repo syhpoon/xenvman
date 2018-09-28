@@ -183,7 +183,7 @@ func (de *DockerEngine) RunContainer(name, tag string,
 		ExposedPorts: ports,
 		Env:          environ,
 		Cmd:          params.Cmd,
-	}, hostCont, netConf, lib.NewId()[:5])
+	}, hostCont, netConf, lib.NewIdShort())
 
 	if err != nil {
 		return "", errors.Wrapf(err, "Error creating container %s", tag)

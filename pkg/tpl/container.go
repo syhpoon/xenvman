@@ -28,7 +28,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/syhpoon/xenvman/pkg/conteng"
@@ -86,7 +85,7 @@ func (cont *Container) Mounts() []*conteng.ContainerFileMount {
 	return cont.mounts
 }
 
-// Create a file in the mount dir from data and mount it inside container
+// Create a file in the mount dir from data and mount it into a container
 func (cont *Container) MountString(data, contFile string, mode int, readonly bool) {
 	id := lib.NewId()
 	path := filepath.Clean(filepath.Join(cont.mountDir, id))
@@ -96,17 +95,25 @@ func (cont *Container) MountString(data, contFile string, mode int, readonly boo
 		panic(errors.Wrapf(err, "Error copying file %s", path))
 	}
 
-	cont.MountFile(path, contFile, mode, readonly)
+	cont.doMount(path, contFile, mode, readonly)
 }
 
-// Mount a file from the mount dir
-// It must be copied there from the data dir (using CopyDataToMountDir) first
-func (cont *Container) MountFile(hostFile, contFile string, mode int, readonly bool) {
-	if !strings.HasPrefix(hostFile, cont.mountDir) {
-		hostFile = filepath.Clean(filepath.Join(cont.mountDir, hostFile))
-		verifyPath(hostFile, cont.mountDir)
+// Copy a file from data dir to mount dir and mount it into a container
+func (cont *Container) MountData(dataFile, contFile string, mode int, readonly bool) {
+	dataPath := filepath.Clean(filepath.Join(cont.dataDir, dataFile))
+	mountPath := filepath.Clean(filepath.Join(cont.mountDir, dataFile))
+
+	verifyPath(dataPath, cont.dataDir)
+	verifyPath(mountPath, cont.mountDir)
+
+	if err := Copy(dataPath, mountPath); err != nil {
+		panic(errors.Wrapf(err, "Error copying data to mount dir"))
 	}
 
+	cont.doMount(mountPath, contFile, mode, readonly)
+}
+
+func (cont *Container) doMount(hostFile, contFile string, mode int, readonly bool) {
 	contLog.Debugf("[%s] Mounting %s to %s", cont.envId, hostFile, contFile)
 
 	cont.mounts = append(cont.mounts, &conteng.ContainerFileMount{
@@ -114,20 +121,6 @@ func (cont *Container) MountFile(hostFile, contFile string, mode int, readonly b
 		ContainerFile: contFile,
 		Readonly:      readonly,
 	})
-}
-
-func (cont *Container) CopyDataToMountDir(objs ...string) {
-	for _, obj := range objs {
-		dataPath := filepath.Clean(filepath.Join(cont.dataDir, obj))
-		mountPath := filepath.Clean(filepath.Join(cont.mountDir, obj))
-
-		verifyPath(dataPath, cont.dataDir)
-		verifyPath(mountPath, cont.mountDir)
-
-		if err := Copy(dataPath, mountPath); err != nil {
-			panic(errors.Wrapf(err, "Error copying data to workspace"))
-		}
-	}
 }
 
 func (cont *Container) ExposePorts(ports ...uint16) {

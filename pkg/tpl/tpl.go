@@ -59,7 +59,8 @@ func (tpl *Tpl) BuildImage(name string) *BuildImage {
 	imgName := fmt.Sprintf("xenv-%s-%s:%s-%d",
 		tpl.name, name, tpl.envId, tpl.idx)
 
-	wsDir := filepath.Join(tpl.wsDir, imgName)
+	wsDir := filepath.Clean(filepath.Join(tpl.wsDir, imgName))
+	verifyPath(wsDir, tpl.wsDir)
 
 	if err := os.MkdirAll(wsDir, 0755); err != nil {
 		panic(fmt.Sprintf("%+v", err))
@@ -79,7 +80,11 @@ func (tpl *Tpl) BuildImage(name string) *BuildImage {
 }
 
 func (tpl *Tpl) FetchImage(imgName string) *FetchImage {
-	wsDir := filepath.Join(tpl.wsDir, fmt.Sprintf("%s-%s", imgName, lib.NewIdShort()))
+	wsDir := filepath.Join(tpl.wsDir,
+		fmt.Sprintf("%s-%s", imgName, lib.NewIdShort()))
+	wsDir = filepath.Clean(wsDir)
+
+	verifyPath(wsDir, tpl.wsDir)
 
 	if err := os.MkdirAll(wsDir, 0755); err != nil {
 		panic(fmt.Sprintf("%+v", err))
