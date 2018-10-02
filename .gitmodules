@@ -122,3 +122,6 @@
 [submodule "vendor/github.com/modern-go/reflect2"]
 	path = vendor/github.com/modern-go/reflect2
 	url = https://github.com/modern-go/reflect2
+[submodule "vendor/github.com/docker/distribution"]
+	path = vendor/github.com/docker/distribution
+	url = https://github.com/docker/distribution
