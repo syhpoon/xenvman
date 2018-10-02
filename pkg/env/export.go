@@ -22,69 +22,25 @@
  SOFTWARE.
 */
 
-package lib
+package env
 
-import (
-	"fmt"
-	"net"
-	"sync"
-
-	"github.com/pkg/errors"
-)
-
-type Port = uint16
-
-type PortRange struct {
-	min  Port
-	max  Port
-	next Port
-	sync.Mutex
+type ContainerData struct {
+	// <internal port> -> "<host>:<external port>"
+	Ports map[int]string `json:"ports"`
 }
 
-func NewPortRange(min, max Port) *PortRange {
-	return &PortRange{
-		min:  min,
-		next: min,
-		max:  max,
+func newContainerData() *ContainerData {
+	return &ContainerData{
+		Ports: map[int]string{},
 	}
 }
 
-func (pr *PortRange) NextPort() (Port, error) {
-	pr.Lock()
-	defer pr.Unlock()
+type TplData struct {
+	// Container name -> <internal port> -> "<host>:<external-port>"
+	Containers map[string]*ContainerData `json:"containers"`
+}
 
-	var span uint16
-
-	for {
-		if span >= pr.max-pr.min {
-			return 0, errors.Errorf("No free ports found in range %d-%d: %d",
-				pr.min, pr.max, span)
-		}
-
-		// Reset back to min, some ports may have been freed by now
-		if pr.next > pr.max {
-			pr.next = pr.min
-		}
-
-		l, err := net.Listen("tcp", fmt.Sprintf(":%d", pr.next))
-
-		if err != nil {
-			span++
-
-			if IsErrAddrInUse(err) {
-				continue
-			}
-
-			return 0, err
-		}
-
-		span = 0
-
-		pr.next++
-
-		port := l.Addr().(*net.TCPAddr).Port
-		l.Close()
-
-		return uint16(port), nil
-	}
+type Exported struct {
+	Id        string                `json:"id"`
+	Templates map[string][]*TplData `json:"templates"` // tpl name -> [TplData]
 }

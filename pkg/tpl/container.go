@@ -25,9 +25,11 @@
 package tpl
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/syhpoon/xenvman/pkg/conteng"
@@ -39,6 +41,8 @@ var contLog = logger.GetLogger("xenvman.pkg.tpl.container")
 
 type Container struct {
 	envId    string
+	tplName  string
+	tplIdx   int
 	name     string
 	image    string
 	environ  map[string]string
@@ -47,6 +51,14 @@ type Container struct {
 	dataDir  string
 	mountDir string
 	mounts   []*conteng.ContainerFileMount
+}
+
+func NewContainer(name, tplName string, tplIdx int) *Container {
+	return &Container{
+		tplName: tplName,
+		tplIdx:  tplIdx,
+		name:    name,
+	}
 }
 
 func (cont *Container) SetEnv(k, v string) {
@@ -123,6 +135,12 @@ func (cont *Container) doMount(hostFile, contFile string, mode int, readonly boo
 	})
 }
 
-func (cont *Container) ExposePorts(ports ...uint16) {
-	cont.ports = append(cont.ports, ports...)
+func (cont *Container) Template() (string, int) {
+	return cont.tplName, cont.tplIdx
+}
+
+func (cont *Container) Hostname() string {
+	tplName := strings.Replace(cont.tplName, "/", "-", -1)
+
+	return fmt.Sprintf("%s.%d.%s", cont.name, cont.tplIdx, tplName)
 }

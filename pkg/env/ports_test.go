@@ -21,51 +21,45 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
 */
-
 package env
 
 import (
-	"fmt"
-	"time"
+	"testing"
 
-	"github.com/pkg/errors"
-
-	"github.com/syhpoon/xenvman/pkg/lib"
+	"github.com/stretchr/testify/require"
 	"github.com/syhpoon/xenvman/pkg/tpl"
 )
 
-func newEnvId(name string) string {
-	t := time.Now().Format("20060102150405")
+func TestPorts(t *testing.T) {
+	p := make(ports)
 
-	return fmt.Sprintf("%s-%s-%s", name, t, lib.NewIdShort())
-}
+	cont1tpl01 := tpl.NewContainer("c1", "tpl1", 0)
+	cont2tpl01 := tpl.NewContainer("c2", "tpl1", 0)
+	cont1tpl11 := tpl.NewContainer("c1", "tpl1", 1)
+	cont1tpl02 := tpl.NewContainer("c1", "tpl2", 0)
+	cont1tpl03 := tpl.NewContainer("c1", "tpl3", 0)
 
-func assignIps(sub string, conts []*tpl.Container) ([]string, map[string]string, error) {
-	ipn, err := lib.ParseNet(sub)
+	p.add(cont1tpl01, map[uint16]uint16{1: 1})
+	require.Len(t, p["tpl1"], 1)
+	require.Len(t, p["tpl1"][0], 1)
 
-	if err != nil {
-		return nil, nil, errors.WithStack(err)
-	}
+	p.add(cont2tpl01, map[uint16]uint16{2: 1})
+	require.Len(t, p["tpl1"], 1)
+	require.Len(t, p["tpl1"][0], 2)
 
-	// Skip gateway
-	_ = ipn.NextIP()
+	p.add(cont1tpl11, map[uint16]uint16{10: 10})
+	require.Len(t, p["tpl1"], 2)
+	require.Len(t, p["tpl1"][1], 1)
 
-	ips := make([]string, len(conts))
-	hosts := map[string]string{}
+	p.add(cont1tpl02, map[uint16]uint16{1: 2})
+	p.add(cont1tpl03, map[uint16]uint16{1: 3})
 
-	for i, cont := range conts {
-		ip := ipn.NextIP()
-		hostname := cont.Hostname()
+	require.Len(t, p["tpl2"], 1)
+	require.Len(t, p["tpl3"], 1)
 
-		if ip == nil {
-			return nil, nil, errors.Errorf("Unable to assign IP to container: network %s exhausted", sub)
-		}
-
-		ips[i] = ip.String()
-		hosts[hostname] = ip.String()
-
-		envLog.Debugf("Assigned IP %s to %s", ips[i], hostname)
-	}
-
-	return ips, hosts, nil
+	require.Equal(t, p["tpl1"][0]["c1"][1], uint16(1))
+	require.Equal(t, p["tpl1"][0]["c2"][2], uint16(1))
+	require.Equal(t, p["tpl1"][1]["c1"][10], uint16(10))
+	require.Equal(t, p["tpl2"][0]["c1"][1], uint16(2))
+	require.Equal(t, p["tpl3"][0]["c1"][1], uint16(3))
 }

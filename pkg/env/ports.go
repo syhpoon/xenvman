@@ -22,69 +22,21 @@
  SOFTWARE.
 */
 
-package lib
+package env
 
-import (
-	"fmt"
-	"net"
-	"sync"
+import "github.com/syhpoon/xenvman/pkg/tpl"
 
-	"github.com/pkg/errors"
-)
+// template name -> [container name -> ports]
+type ports map[string][]map[string]map[uint16]uint16
 
-type Port = uint16
+func (p ports) add(cont *tpl.Container, ports map[uint16]uint16) {
+	tplName, tplIdx := cont.Template()
 
-type PortRange struct {
-	min  Port
-	max  Port
-	next Port
-	sync.Mutex
-}
-
-func NewPortRange(min, max Port) *PortRange {
-	return &PortRange{
-		min:  min,
-		next: min,
-		max:  max,
+	for len(p[tplName])-1 < tplIdx {
+		p[tplName] = append(p[tplName], map[string]map[uint16]uint16{})
 	}
-}
 
-func (pr *PortRange) NextPort() (Port, error) {
-	pr.Lock()
-	defer pr.Unlock()
+	cur := p[tplName][tplIdx]
 
-	var span uint16
-
-	for {
-		if span >= pr.max-pr.min {
-			return 0, errors.Errorf("No free ports found in range %d-%d: %d",
-				pr.min, pr.max, span)
-		}
-
-		// Reset back to min, some ports may have been freed by now
-		if pr.next > pr.max {
-			pr.next = pr.min
-		}
-
-		l, err := net.Listen("tcp", fmt.Sprintf(":%d", pr.next))
-
-		if err != nil {
-			span++
-
-			if IsErrAddrInUse(err) {
-				continue
-			}
-
-			return 0, err
-		}
-
-		span = 0
-
-		pr.next++
-
-		port := l.Addr().(*net.TCPAddr).Port
-		l.Close()
-
-		return uint16(port), nil
-	}
+	cur[cont.Name()] = ports
 }

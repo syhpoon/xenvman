@@ -30,6 +30,7 @@ container-engine = "docker"
 
 [api]
 listen = ":9876"
+export-address = "localhost"
 
 [log]
 config = "<root>=trace"

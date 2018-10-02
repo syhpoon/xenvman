@@ -29,13 +29,14 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/syhpoon/xenvman/pkg/env"
+
 	"github.com/json-iterator/go"
 	"github.com/pkg/errors"
 )
 
 type Env struct {
-	Id    string            `json:"id"`
-	Ports map[uint16]uint16 `json:"ports"`
+	*env.Exported
 
 	httpClient    http.Client
 	serverAddress string

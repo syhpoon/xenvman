@@ -36,6 +36,8 @@ var imgLog = logger.GetLogger("xenvman.pkg.tpl.image")
 
 type Image struct {
 	envId      string
+	tplName    string
+	tplIdx     int
 	name       string
 	dataDir    string
 	wsDir      string
@@ -62,6 +64,8 @@ func (img *Image) NewContainer(name string) *Container {
 
 	cont := &Container{
 		envId:    img.envId,
+		tplName:  img.tplName,
+		tplIdx:   img.tplIdx,
 		name:     name,
 		image:    img.name,
 		environ:  map[string]string{},

@@ -26,27 +26,24 @@ package env
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
-	"github.com/syhpoon/xenvman/pkg/lib"
-
-	"github.com/syhpoon/xenvman/pkg/tpl"
-
+	"github.com/pkg/errors"
 	"github.com/syhpoon/xenvman/pkg/conteng"
 	"github.com/syhpoon/xenvman/pkg/def"
+	"github.com/syhpoon/xenvman/pkg/lib"
 	"github.com/syhpoon/xenvman/pkg/logger"
-
-	"github.com/pkg/errors"
+	"github.com/syhpoon/xenvman/pkg/tpl"
 )
 
 var envLog = logger.GetLogger("xenvman.pkg.api.env")
 
 // Configured environment
 type Env struct {
-	Id    string            `json:"id"`
-	Ports map[uint16]uint16 `json:"ports"`
-
+	id            string
+	ports         ports
 	ed            *def.Env
 	ceng          conteng.ContainerEngine
 	netId         string
@@ -54,17 +51,19 @@ type Env struct {
 	terminating   bool
 	keepAliveChan chan bool
 	builtImages   map[string]struct{}
+	params        Params
 	sync.RWMutex
 }
 
 type Params struct {
-	EnvDef       *def.Env
-	ContEng      conteng.ContainerEngine
-	PortRange    *lib.PortRange
-	BaseTplDir   string
-	BaseWsDir    string
-	BaseMountDir string
-	Ctx          context.Context
+	EnvDef        *def.Env
+	ContEng       conteng.ContainerEngine
+	PortRange     *lib.PortRange
+	BaseTplDir    string
+	BaseWsDir     string
+	BaseMountDir  string
+	ExportAddress string
+	Ctx           context.Context
 }
 
 func NewEnv(params Params) (*Env, error) {
@@ -168,18 +167,20 @@ func NewEnv(params Params) (*Env, error) {
 
 	var cids []string
 
-	ports := map[uint16]uint16{}
+	ports := make(ports)
 
 	// Now create containers
-	for _, cont := range containers {
-		tag := cont.Image()
+	for i, cont := range containers {
+		imgName := cont.Image()
 
 		// Expose ports
 		portsToExpose := cont.Ports()
 
 		if len(portsToExpose) == 0 {
-			portsToExpose = imgPorts[tag]
+			portsToExpose = imgPorts[imgName]
 		}
+
+		cports := map[uint16]uint16{}
 
 		for _, contPort := range portsToExpose {
 			port, err := params.PortRange.NextPort()
@@ -191,23 +192,25 @@ func NewEnv(params Params) (*Env, error) {
 			envLog.Debugf("Exposing internal port %d as %d for %s",
 				contPort, port, cont.Name())
 
-			ports[contPort] = port
+			cports[contPort] = port
 		}
+
+		ports.add(cont, cports)
 
 		cparams := conteng.RunContainerParams{
 			NetworkId:  netId,
-			IP:         ips[cont.Name()],
+			IP:         ips[i],
 			Hosts:      hosts,
-			Ports:      ports,
+			Ports:      cports,
 			Environ:    cont.Environ(),
 			Cmd:        cont.Cmd(),
 			FileMounts: cont.Mounts(),
 		}
 
-		cid, err := params.ContEng.RunContainer(cont.Name(), tag, cparams)
+		cid, err := params.ContEng.RunContainer(cont.Hostname(), imgName, cparams)
 
 		if err != nil {
-			return nil, errors.Wrapf(err, "Error running container: %s", cont.Name)
+			return nil, errors.Wrapf(err, "Error running container: %s", cont.Name())
 		}
 
 		cids = append(cids, cid)
@@ -216,14 +219,15 @@ func NewEnv(params Params) (*Env, error) {
 	envLog.Infof("New env created: %s", id)
 
 	env := &Env{
-		Id:            id,
-		Ports:         ports,
+		id:            id,
+		ports:         ports,
 		ed:            params.EnvDef,
 		ceng:          params.ContEng,
 		netId:         netId,
 		containers:    cids,
 		keepAliveChan: make(chan bool, 1),
 		builtImages:   builtTags,
+		params:        params,
 	}
 
 	if params.EnvDef.Options.KeepAlive != 0 {
@@ -255,14 +259,14 @@ func (e *Env) Terminate() error {
 	e.terminating = true
 	e.Unlock()
 
-	envLog.Infof("Terminating env %s", e.Id)
+	envLog.Infof("Terminating env %s", e.id)
 
 	var err error
 
 	// Stop containers
 	for _, cid := range e.containers {
 		if err = e.ceng.RemoveContainer(cid); err != nil {
-			envLog.Errorf("Error terminating env %s: %s", e.Id, err)
+			envLog.Errorf("Error terminating env %s: %s", e.id, err)
 		}
 
 		envLog.Debugf("Container %s removed", cid)
@@ -293,6 +297,10 @@ func (e *Env) KeepAlive() {
 	e.keepAliveChan <- true
 }
 
+func (e *Env) Id() string {
+	return e.id
+}
+
 func (e *Env) keepAliveWatchdog(ctx context.Context) {
 	d := time.Duration(e.ed.Options.KeepAlive)
 
@@ -309,11 +317,41 @@ func (e *Env) keepAliveWatchdog(ctx context.Context) {
 
 			keepAliveTimer.Reset(d)
 		case <-keepAliveTimer.C:
-			envLog.Infof("Keep alive timeout triggered for %s, terminating", e.Id)
+			envLog.Infof("Keep alive timeout triggered for %s, terminating", e.id)
 
 			_ = e.Terminate()
 
 			return
 		}
+	}
+}
+
+func (e *Env) Export() *Exported {
+	templates := map[string][]*TplData{}
+
+	for tplName, tpls := range e.ports {
+		for _, t := range tpls {
+			tpld := &TplData{
+				Containers: map[string]*ContainerData{},
+			}
+
+			for cont, ps := range t {
+				if _, ok := tpld.Containers[cont]; !ok {
+					tpld.Containers[cont] = newContainerData()
+				}
+
+				for ip, ep := range ps {
+					tpld.Containers[cont].Ports[int(ip)] = fmt.Sprintf("%s:%d",
+						e.params.ExportAddress, ep)
+				}
+			}
+
+			templates[tplName] = append(templates[tplName], tpld)
+		}
+	}
+
+	return &Exported{
+		Id:        e.id,
+		Templates: templates,
 	}
 }

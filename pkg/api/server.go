@@ -46,21 +46,22 @@ import (
 var serverLog = logger.GetLogger("xenvman.pkg.api.server")
 
 type ServerParams struct {
-	Listener     net.Listener
-	WriteTimeout time.Duration
-	ReadTimeout  time.Duration
-	ContEng      conteng.ContainerEngine
-	PortRange    *lib.PortRange
-	BaseTplDir   string
-	BaseWsDir    string
-	BaseMountDir string
-	Ctx          context.Context
+	Listener      net.Listener
+	WriteTimeout  time.Duration
+	ReadTimeout   time.Duration
+	ContEng       conteng.ContainerEngine
+	PortRange     *lib.PortRange
+	BaseTplDir    string
+	BaseWsDir     string
+	BaseMountDir  string
+	ExportAddress string
+	Ctx           context.Context
 }
 
 func DefaultServerParams(ctx context.Context) ServerParams {
 	return ServerParams{
 		WriteTimeout: 5 * time.Minute,
-		ReadTimeout:  60 * time.Second,
+		ReadTimeout:  5 * time.Minute,
 		Ctx:          ctx,
 	}
 }
@@ -170,13 +171,14 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	e, err := env.NewEnv(env.Params{
-		EnvDef:       &edef,
-		ContEng:      s.params.ContEng,
-		PortRange:    s.params.PortRange,
-		BaseTplDir:   s.params.BaseTplDir,
-		BaseWsDir:    s.params.BaseWsDir,
-		BaseMountDir: s.params.BaseMountDir,
-		Ctx:          s.params.Ctx,
+		EnvDef:        &edef,
+		ContEng:       s.params.ContEng,
+		PortRange:     s.params.PortRange,
+		BaseTplDir:    s.params.BaseTplDir,
+		BaseWsDir:     s.params.BaseWsDir,
+		BaseMountDir:  s.params.BaseMountDir,
+		ExportAddress: s.params.ExportAddress,
+		Ctx:           s.params.Ctx,
 	})
 
 	if err != nil {
@@ -188,10 +190,10 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	s.Lock()
-	s.envs[e.Id] = e
+	s.envs[e.Id()] = e
 	s.Unlock()
 
-	ApiSendData(w, http.StatusOK, e)
+	ApiSendData(w, http.StatusOK, e.Export())
 }
 
 func (s *Server) deleteEnvHandler(w http.ResponseWriter, req *http.Request) {
@@ -201,7 +203,7 @@ func (s *Server) deleteEnvHandler(w http.ResponseWriter, req *http.Request) {
 	id := vars["id"]
 
 	s.RLock()
-	env, ok := s.envs[id]
+	e, ok := s.envs[id]
 	s.RUnlock()
 
 	if !ok {
@@ -212,7 +214,7 @@ func (s *Server) deleteEnvHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err := env.Terminate()
+	err := e.Terminate()
 
 	if err != nil {
 		serverLog.Errorf("Error terminating env %s: %+v", id, err)
@@ -236,7 +238,7 @@ func (s *Server) keepaliveEnvHandler(w http.ResponseWriter, req *http.Request) {
 	id := vars["id"]
 
 	s.RLock()
-	env, ok := s.envs[id]
+	e, ok := s.envs[id]
 	s.RUnlock()
 
 	if !ok {
@@ -247,7 +249,7 @@ func (s *Server) keepaliveEnvHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !env.IsAlive() {
+	if !e.IsAlive() {
 		serverLog.Errorf("Env is terminating %s", id)
 
 		s.Lock()
@@ -259,7 +261,7 @@ func (s *Server) keepaliveEnvHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	env.KeepAlive()
+	e.KeepAlive()
 
 	ApiSendMessage(w, http.StatusOK, "")
 }

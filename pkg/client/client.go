@@ -124,10 +124,12 @@ func (cl *Client) NewEnv(envDef *def.Env) (*Env, error) {
 		return nil, errors.Wrapf(err, "Error parsing response body")
 	}
 
+	e := &Env{}
+
 	if r.Env != nil {
-		r.Env.httpClient = cl.httpClient
-		r.Env.serverAddress = cl.params.ServerAddress
+		e.Exported = r.Env
+		e.httpClient = cl.httpClient
 	}
 
-	return r.Env, nil
+	return e, nil
 }

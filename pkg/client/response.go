@@ -24,7 +24,9 @@
 
 package client
 
+import "github.com/syhpoon/xenvman/pkg/env"
+
 type apiResponse struct {
-	Message string `json:"message,omitempty"`
-	Env     *Env   `json:"data"`
+	Message string        `json:"message,omitempty"`
+	Env     *env.Exported `json:"data"`
 }

@@ -67,7 +67,16 @@ func (tpl *Tpl) BuildImage(name string) *BuildImage {
 	}
 
 	img := &BuildImage{
-		Image: newImage(tpl.envId, imgName, wsDir, tpl.mountDir, tpl.dataDir),
+		Image: &Image{
+			envId:      tpl.envId,
+			tplName:    tpl.name,
+			tplIdx:     tpl.idx,
+			name:       name,
+			wsDir:      wsDir,
+			mountDir:   tpl.mountDir,
+			dataDir:    tpl.dataDir,
+			containers: map[string]*Container{},
+		},
 	}
 
 	tplLog.Debugf("[%s] Building image %s", tpl.envId, imgName)
@@ -91,7 +100,16 @@ func (tpl *Tpl) FetchImage(imgName string) *FetchImage {
 	}
 
 	img := &FetchImage{
-		Image: newImage(tpl.envId, imgName, wsDir, tpl.mountDir, tpl.dataDir),
+		Image: &Image{
+			envId:      tpl.envId,
+			tplName:    tpl.name,
+			tplIdx:     tpl.idx,
+			name:       imgName,
+			wsDir:      wsDir,
+			mountDir:   tpl.mountDir,
+			dataDir:    tpl.dataDir,
+			containers: map[string]*Container{},
+		},
 	}
 
 	tplLog.Debugf("[%s] Fetching image %s", tpl.envId, imgName)
