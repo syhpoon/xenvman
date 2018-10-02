@@ -7,6 +7,8 @@ create environments for testing microservices.
 Environment is an isolated bubble where one or more containers can be run 
 together in order to provide a necessary playground for testing microservises.
 
+![Overview](docs/img/overview.png)
+
 xenvman allows you to:
 
 * Define environment templates using JavaScript
