@@ -27,6 +27,7 @@ package env
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -68,34 +69,28 @@ type Params struct {
 
 func NewEnv(params Params) (*Env, error) {
 	id := newEnvId(params.EnvDef.Name)
+	env := &Env{
+		id:            id,
+		ed:            params.EnvDef,
+		ceng:          params.ContEng,
+		keepAliveChan: make(chan bool, 1),
+		params:        params,
+		builtImages:   map[string]struct{}{},
+	}
 
-	tplIdx := map[string]int{}
 	imagesToBuild := map[string]*tpl.BuildImage{}
 	imagesToFetch := map[string]*tpl.FetchImage{}
 	imgPorts := map[string][]uint16{}
-	builtTags := map[string]struct{}{}
 
 	var containers []*tpl.Container
 
-	// Execute templates
-	for _, template := range params.EnvDef.Templates {
-		idx := tplIdx[template.Tpl]
+	tpls, err := executeTemplates(params.Ctx, id, params)
 
-		// TODO: Run in parallel
-		t, err := tpl.Execute(id, template.Tpl, idx,
-			tpl.ExecuteParams{
-				BaseTplDir:   params.BaseTplDir,
-				BaseWsDir:    params.BaseWsDir,
-				BaseMountDir: params.BaseMountDir,
-				TplParams:    template.Parameters,
-			})
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
-
-		tplIdx[template.Tpl]++
-
+	for _, t := range tpls {
 		// Collect build images
 		for _, bimg := range t.GetBuildImages() {
 			imagesToBuild[bimg.Name()] = bimg
@@ -127,11 +122,12 @@ func NewEnv(params Params) (*Env, error) {
 		}
 
 		if err := params.ContEng.BuildImage(tag, bctx); err != nil {
-			//TODO: Clean up
+			env.Terminate()
+
 			return nil, errors.Wrapf(err, "Error building image %s", tag)
 		}
 
-		builtTags[tag] = struct{}{}
+		env.builtImages[tag] = struct{}{}
 
 		ports, err := params.ContEng.GetImagePorts(tag)
 
@@ -147,7 +143,7 @@ func NewEnv(params Params) (*Env, error) {
 	// Fetch images
 	for tag := range imagesToFetch {
 		if err := params.ContEng.FetchImage(tag); err != nil {
-			//TODO: Clean up
+			env.Terminate()
 			return nil, errors.Wrapf(err, "Error fetching image %s", tag)
 		}
 	}
@@ -159,13 +155,13 @@ func NewEnv(params Params) (*Env, error) {
 		return nil, errors.Wrapf(err, "Error creating network")
 	}
 
+	env.netId = netId
+
 	ips, hosts, err := assignIps(sub, containers)
 
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-
-	var cids []string
 
 	ports := make(ports)
 
@@ -213,22 +209,12 @@ func NewEnv(params Params) (*Env, error) {
 			return nil, errors.Wrapf(err, "Error running container: %s", cont.Name())
 		}
 
-		cids = append(cids, cid)
+		env.containers = append(env.containers, cid)
 	}
+
+	env.ports = ports
 
 	envLog.Infof("New env created: %s", id)
-
-	env := &Env{
-		id:            id,
-		ports:         ports,
-		ed:            params.EnvDef,
-		ceng:          params.ContEng,
-		netId:         netId,
-		containers:    cids,
-		keepAliveChan: make(chan bool, 1),
-		builtImages:   builtTags,
-		params:        params,
-	}
 
 	if params.EnvDef.Options.KeepAlive != 0 {
 		envLog.Infof("Keep alive for %s = %s", id,
@@ -238,6 +224,74 @@ func NewEnv(params Params) (*Env, error) {
 	}
 
 	return env, nil
+}
+
+type executeResult struct {
+	t   *tpl.Tpl
+	idx int
+}
+
+type executeResults []*executeResult
+
+func (er executeResults) Len() int           { return len(er) }
+func (er executeResults) Swap(i, j int)      { er[i], er[j] = er[j], er[i] }
+func (er executeResults) Less(i, j int) bool { return er[i].idx < er[j].idx }
+
+// Execute templates in parallel
+func executeTemplates(pctx context.Context, id string, params Params) ([]*tpl.Tpl, error) {
+	tplIdx := map[string]int{}
+
+	ctx, cancel := context.WithCancel(pctx)
+	defer cancel()
+
+	tpls := params.EnvDef.Templates
+	rch := make(chan *executeResult, len(tpls))
+	errch := make(chan error, len(tpls))
+
+	for _, template := range tpls {
+		idx := tplIdx[template.Tpl]
+		tplIdx[template.Tpl]++
+
+		go func(tplObj *def.Tpl, idx int) {
+			t, err := tpl.Execute(id, tplObj.Tpl, idx,
+				tpl.ExecuteParams{
+					BaseTplDir:   params.BaseTplDir,
+					BaseWsDir:    params.BaseWsDir,
+					BaseMountDir: params.BaseMountDir,
+					TplParams:    tplObj.Parameters,
+					Ctx:          ctx,
+				})
+
+			if err != nil {
+				errch <- errors.WithStack(err)
+			} else {
+
+				rch <- &executeResult{t: t, idx: idx}
+			}
+		}(template, idx)
+	}
+
+	var results executeResults
+
+	for len(results) < len(tpls) {
+		select {
+		case err := <-errch:
+			return nil, errors.Wrapf(err, "Error in tpl execution")
+
+		case r := <-rch:
+			results = append(results, r)
+		}
+	}
+
+	sort.Sort(results)
+
+	templates := make([]*tpl.Tpl, len(results))
+
+	for i, r := range results {
+		templates[i] = r.t
+	}
+
+	return templates, nil
 }
 
 func (e *Env) IsAlive() bool {

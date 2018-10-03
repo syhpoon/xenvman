@@ -25,9 +25,9 @@
 package tpl
 
 import (
+	"context"
 	"path/filepath"
 
-	"github.com/syhpoon/xenvman/pkg/conteng"
 	"github.com/syhpoon/xenvman/pkg/lib"
 	"github.com/syhpoon/xenvman/pkg/logger"
 )
@@ -43,23 +43,13 @@ type Image struct {
 	wsDir      string
 	mountDir   string
 	containers map[string]*Container
-	mounts     []*conteng.ContainerFileMount
-}
-
-func newImage(envId, name, wsDir, mountDir, dataDir string) *Image {
-	return &Image{
-		envId:      envId,
-		name:       name,
-		wsDir:      wsDir,
-		mountDir:   mountDir,
-		dataDir:    dataDir,
-		containers: map[string]*Container{},
-	}
+	ctx        context.Context
 }
 
 func (img *Image) NewContainer(name string) *Container {
-
 	mountDir := filepath.Join(img.mountDir, name, lib.NewIdShort())
+
+	checkCancelled(img.ctx)
 	makeDir(mountDir)
 
 	cont := &Container{
@@ -71,6 +61,7 @@ func (img *Image) NewContainer(name string) *Container {
 		environ:  map[string]string{},
 		mountDir: mountDir,
 		dataDir:  img.dataDir,
+		ctx:      img.ctx,
 	}
 
 	imgLog.Debugf("[%s] Creating new container for %s, %s",

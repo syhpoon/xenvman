@@ -25,6 +25,7 @@
 package tpl
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -51,6 +52,7 @@ type Tpl struct {
 	wsDir    string
 	mountDir string
 
+	ctx context.Context
 	sync.RWMutex
 }
 
@@ -61,6 +63,8 @@ func (tpl *Tpl) BuildImage(name string) *BuildImage {
 
 	wsDir := filepath.Clean(filepath.Join(tpl.wsDir, imgName))
 	verifyPath(wsDir, tpl.wsDir)
+
+	checkCancelled(tpl.ctx)
 
 	if err := os.MkdirAll(wsDir, 0755); err != nil {
 		panic(fmt.Sprintf("%+v", err))
@@ -76,6 +80,7 @@ func (tpl *Tpl) BuildImage(name string) *BuildImage {
 			mountDir:   tpl.mountDir,
 			dataDir:    tpl.dataDir,
 			containers: map[string]*Container{},
+			ctx:        tpl.ctx,
 		},
 	}
 
@@ -95,6 +100,8 @@ func (tpl *Tpl) FetchImage(imgName string) *FetchImage {
 
 	verifyPath(wsDir, tpl.wsDir)
 
+	checkCancelled(tpl.ctx)
+
 	if err := os.MkdirAll(wsDir, 0755); err != nil {
 		panic(fmt.Sprintf("%+v", err))
 	}
@@ -109,6 +116,7 @@ func (tpl *Tpl) FetchImage(imgName string) *FetchImage {
 			mountDir:   tpl.mountDir,
 			dataDir:    tpl.dataDir,
 			containers: map[string]*Container{},
+			ctx:        tpl.ctx,
 		},
 	}
 

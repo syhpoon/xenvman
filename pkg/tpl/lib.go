@@ -25,6 +25,7 @@
 package tpl
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -68,5 +69,14 @@ func makeDir(path string) {
 func verifyPath(path, base string) {
 	if !strings.HasPrefix(path, base) {
 		panic(errors.Errorf("Invalid path: %s", path))
+	}
+}
+
+func checkCancelled(ctx context.Context) {
+	select {
+	case <-ctx.Done():
+		panic(errCancelled)
+	default:
+		return
 	}
 }

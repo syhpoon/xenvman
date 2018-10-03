@@ -25,6 +25,7 @@
 package tpl
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -51,6 +52,7 @@ type Container struct {
 	dataDir  string
 	mountDir string
 	mounts   []*conteng.ContainerFileMount
+	ctx      context.Context
 }
 
 func NewContainer(name, tplName string, tplIdx int) *Container {
@@ -62,14 +64,17 @@ func NewContainer(name, tplName string, tplIdx int) *Container {
 }
 
 func (cont *Container) SetEnv(k, v string) {
+	checkCancelled(cont.ctx)
 	cont.environ[k] = v
 }
 
 func (cont *Container) SetCmd(cmd ...string) {
+	checkCancelled(cont.ctx)
 	cont.cmd = cmd
 }
 
 func (cont *Container) SetPorts(ports ...uint16) {
+	checkCancelled(cont.ctx)
 	cont.ports = ports
 }
 
@@ -103,6 +108,8 @@ func (cont *Container) MountString(data, contFile string, mode int, readonly boo
 	path := filepath.Clean(filepath.Join(cont.mountDir, id))
 	verifyPath(path, cont.mountDir)
 
+	checkCancelled(cont.ctx)
+
 	if err := ioutil.WriteFile(path, []byte(data), os.FileMode(mode)); err != nil {
 		panic(errors.Wrapf(err, "Error copying file %s", path))
 	}
@@ -117,6 +124,8 @@ func (cont *Container) MountData(dataFile, contFile string, mode int, readonly b
 
 	verifyPath(dataPath, cont.dataDir)
 	verifyPath(mountPath, cont.mountDir)
+
+	checkCancelled(cont.ctx)
 
 	if err := Copy(dataPath, mountPath); err != nil {
 		panic(errors.Wrapf(err, "Error copying data to mount dir"))

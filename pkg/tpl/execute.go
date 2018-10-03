@@ -25,6 +25,7 @@
 package tpl
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -32,7 +33,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/robertkrimen/otto"
 	"github.com/syhpoon/xenvman/pkg/def"
+	"github.com/syhpoon/xenvman/pkg/logger"
 )
+
+var executeLog = logger.GetLogger("xenvman.pkg.tpl.execute")
+var errCancelled = errors.New("Cancelled execution")
 
 const executeFunctionName = "execute"
 
@@ -41,11 +46,17 @@ type ExecuteParams struct {
 	BaseWsDir    string
 	BaseMountDir string
 	TplParams    def.TplParams
+	Ctx          context.Context
 }
 
 func Execute(envId, tplName string, tplIndex int, params ExecuteParams) (tpl *Tpl, err error) {
+
 	defer func() {
 		if r := recover(); r != nil {
+			if r == errCancelled {
+				executeLog.Infof("Execution cancelled for %s", tplName)
+			}
+
 			err = errors.Errorf("Error running template: %v", r)
 		}
 	}()
@@ -88,6 +99,7 @@ func Execute(envId, tplName string, tplIndex int, params ExecuteParams) (tpl *Tp
 		dataDir:  dataDir,
 		wsDir:    wsDir,
 		mountDir: mountDir,
+		ctx:      params.Ctx,
 	}
 
 	_, err = vm.Call(executeFunctionName, nil, tpl, params.TplParams)

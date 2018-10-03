@@ -42,6 +42,8 @@ type BuildImage struct {
 
 // Copy a file/dir from data dir to workspace dir
 func (img *Image) CopyDataToWorkspace(objs ...string) {
+	checkCancelled(img.ctx)
+
 	for _, obj := range objs {
 		if obj == "*" {
 			imgLog.Debugf("Copying everything from %s to %s for %s",
