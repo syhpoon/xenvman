@@ -55,7 +55,6 @@ import (
 var dockerLog = logger.GetLogger("xenvman.pkg.conteng.conteng_docker")
 
 type DockerEngineParams struct {
-	Ctx context.Context
 }
 
 type DockerEngine struct {
@@ -83,7 +82,8 @@ func NewDockerEngine(params DockerEngineParams) (*DockerEngine, error) {
 	}, nil
 }
 
-func (de *DockerEngine) CreateNetwork(name string) (NetworkId, string, error) {
+func (de *DockerEngine) CreateNetwork(ctx context.Context,
+	name string) (NetworkId, string, error) {
 	sub, err := de.getSubNet()
 
 	if err != nil {
@@ -103,7 +103,7 @@ func (de *DockerEngine) CreateNetwork(name string) (NetworkId, string, error) {
 		},
 	}
 
-	r, err := de.cl.NetworkCreate(de.params.Ctx, name, netParams)
+	r, err := de.cl.NetworkCreate(ctx, name, netParams)
 
 	if err != nil {
 		return "", "", errors.Wrapf(err, "Error creating docker network")
@@ -114,7 +114,7 @@ func (de *DockerEngine) CreateNetwork(name string) (NetworkId, string, error) {
 	return r.ID, sub, nil
 }
 
-func (de *DockerEngine) RunContainer(name, tag string,
+func (de *DockerEngine) RunContainer(ctx context.Context, name, tag string,
 	params RunContainerParams) (string, error) {
 
 	// Hosts
@@ -175,7 +175,7 @@ func (de *DockerEngine) RunContainer(name, tag string,
 		},
 	}
 
-	r, err := de.cl.ContainerCreate(de.params.Ctx, &container.Config{
+	r, err := de.cl.ContainerCreate(ctx, &container.Config{
 		Hostname:     name,
 		AttachStdout: true,
 		AttachStderr: true,
@@ -189,8 +189,7 @@ func (de *DockerEngine) RunContainer(name, tag string,
 		return "", errors.Wrapf(err, "Error creating container %s", tag)
 	}
 
-	err = de.cl.ContainerStart(de.params.Ctx, r.ID,
-		types.ContainerStartOptions{})
+	err = de.cl.ContainerStart(ctx, r.ID, types.ContainerStartOptions{})
 
 	if err != nil {
 		return "", errors.Wrapf(err, "Error starting container: %s", tag)
@@ -201,19 +200,21 @@ func (de *DockerEngine) RunContainer(name, tag string,
 	return r.ID, nil
 }
 
-func (de *DockerEngine) RemoveContainer(id string) error {
-	return de.cl.ContainerRemove(de.params.Ctx, id,
+func (de *DockerEngine) RemoveContainer(ctx context.Context, id string) error {
+	return de.cl.ContainerRemove(ctx, id,
 		types.ContainerRemoveOptions{
 			RemoveVolumes: true,
 			Force:         true,
 		})
 }
 
-func (de *DockerEngine) RemoveNetwork(id string) error {
-	return de.cl.NetworkRemove(de.params.Ctx, id)
+func (de *DockerEngine) RemoveNetwork(ctx context.Context, id string) error {
+	return de.cl.NetworkRemove(ctx, id)
 }
 
-func (de *DockerEngine) BuildImage(imgName string, buildContext io.Reader) error {
+func (de *DockerEngine) BuildImage(ctx context.Context, imgName string,
+	buildContext io.Reader) error {
+
 	opts := types.ImageBuildOptions{
 		NetworkMode:    "bridge",
 		Tags:           []string{imgName},
@@ -224,7 +225,7 @@ func (de *DockerEngine) BuildImage(imgName string, buildContext io.Reader) error
 		PullParent:     true,
 	}
 
-	r, err := de.cl.ImageBuild(de.params.Ctx, buildContext, opts)
+	r, err := de.cl.ImageBuild(ctx, buildContext, opts)
 	defer r.Body.Close()
 
 	// Check server response
@@ -237,13 +238,13 @@ func (de *DockerEngine) BuildImage(imgName string, buildContext io.Reader) error
 	return err
 }
 
-func (de *DockerEngine) RemoveImage(imgName string) error {
+func (de *DockerEngine) RemoveImage(ctx context.Context, imgName string) error {
 	opts := types.ImageRemoveOptions{
 		Force:         true,
 		PruneChildren: true,
 	}
 
-	_, err := de.cl.ImageRemove(de.params.Ctx, imgName, opts)
+	_, err := de.cl.ImageRemove(ctx, imgName, opts)
 
 	if err == nil {
 		dockerLog.Debugf("Image removed: %s", imgName)
@@ -252,14 +253,14 @@ func (de *DockerEngine) RemoveImage(imgName string) error {
 	return err
 }
 
-func (de *DockerEngine) FetchImage(imgName string) error {
+func (de *DockerEngine) FetchImage(ctx context.Context, imgName string) error {
 	auth, err := de.getAuthForImage(imgName, "")
 
 	if err != nil {
 		return err
 	}
 
-	_, err = de.cl.ImagePull(de.params.Ctx, imgName, types.ImagePullOptions{
+	_, err = de.cl.ImagePull(ctx, imgName, types.ImagePullOptions{
 		RegistryAuth: auth,
 	})
 
@@ -270,8 +271,9 @@ func (de *DockerEngine) FetchImage(imgName string) error {
 	return err
 }
 
-func (de *DockerEngine) GetImagePorts(tag string) ([]uint16, error) {
-	r, _, err := de.cl.ImageInspectWithRaw(de.params.Ctx, tag)
+func (de *DockerEngine) GetImagePorts(ctx context.Context,
+	tag string) ([]uint16, error) {
+	r, _, err := de.cl.ImageInspectWithRaw(ctx, tag)
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "Error inspecting image %s", tag)

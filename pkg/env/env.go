@@ -80,7 +80,6 @@ func NewEnv(params Params) (*Env, error) {
 
 	imagesToBuild := map[string]*tpl.BuildImage{}
 	imagesToFetch := map[string]*tpl.FetchImage{}
-	imgPorts := map[string][]uint16{}
 
 	var containers []*tpl.Container
 
@@ -112,44 +111,25 @@ func NewEnv(params Params) (*Env, error) {
 		}
 	}
 
-	// Build images
-	for tag, img := range imagesToBuild {
-		//TODO: Run in parallel
-		bctx, err := img.BuildContext()
+	imgPorts, err := buildAndFetch(env, imagesToBuild, imagesToFetch,
+		params.ContEng, params.Ctx)
 
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
+	if err != nil {
+		env.Terminate()
 
-		if err := params.ContEng.BuildImage(tag, bctx); err != nil {
-			env.Terminate()
-
-			return nil, errors.Wrapf(err, "Error building image %s", tag)
-		}
-
-		env.builtImages[tag] = struct{}{}
-
-		ports, err := params.ContEng.GetImagePorts(tag)
-
-		if err != nil {
-			envLog.Warningf("Error getting exposed ports for %s: %s", tag, err)
-		} else {
-			envLog.Debugf("Exposed ports for %s: %v", tag, ports)
-
-			imgPorts[tag] = ports
-		}
+		return nil, errors.WithStack(err)
 	}
 
 	// Fetch images
 	for tag := range imagesToFetch {
-		if err := params.ContEng.FetchImage(tag); err != nil {
+		if err := params.ContEng.FetchImage(params.Ctx, tag); err != nil {
 			env.Terminate()
 			return nil, errors.Wrapf(err, "Error fetching image %s", tag)
 		}
 	}
 
 	// Create network
-	netId, sub, err := params.ContEng.CreateNetwork(id)
+	netId, sub, err := params.ContEng.CreateNetwork(params.Ctx, id)
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "Error creating network")
@@ -186,7 +166,7 @@ func NewEnv(params Params) (*Env, error) {
 			}
 
 			envLog.Debugf("Exposing internal port %d as %d for %s",
-				contPort, port, cont.Name())
+				contPort, port, cont.Hostname())
 
 			cports[contPort] = port
 		}
@@ -203,10 +183,11 @@ func NewEnv(params Params) (*Env, error) {
 			FileMounts: cont.Mounts(),
 		}
 
-		cid, err := params.ContEng.RunContainer(cont.Hostname(), imgName, cparams)
+		cid, err := params.ContEng.RunContainer(params.Ctx,
+			cont.Hostname(), imgName, cparams)
 
 		if err != nil {
-			return nil, errors.Wrapf(err, "Error running container: %s", cont.Name())
+			return nil, errors.Wrapf(err, "Error running container: %s", cont.Hostname())
 		}
 
 		env.containers = append(env.containers, cid)
@@ -224,6 +205,83 @@ func NewEnv(params Params) (*Env, error) {
 	}
 
 	return env, nil
+}
+
+func buildAndFetch(env *Env, toBuild map[string]*tpl.BuildImage,
+	toFetch map[string]*tpl.FetchImage, ceng conteng.ContainerEngine,
+	pctx context.Context) (map[string][]uint16, error) {
+
+	imgPorts := map[string][]uint16{}
+
+	lock := sync.Mutex{}
+	ctx, cancel := context.WithCancel(pctx)
+	defer cancel()
+
+	total := len(toBuild) + len(toFetch)
+	rch := make(chan struct{}, total)
+	errch := make(chan error, total)
+
+	// Build images
+	for imgName, img := range toBuild {
+		go func(imgName string, img *tpl.BuildImage) {
+			bctx, err := img.BuildContext()
+
+			if err != nil {
+				errch <- errors.WithStack(err)
+
+				return
+			}
+
+			if err := ceng.BuildImage(ctx, imgName, bctx); err != nil {
+				errch <- errors.Wrapf(err, "Error building image %s", imgName)
+
+				return
+			}
+
+			lock.Lock()
+			env.builtImages[imgName] = struct{}{}
+			lock.Unlock()
+
+			ports, err := ceng.GetImagePorts(ctx, imgName)
+
+			if err != nil {
+				envLog.Warningf("Error getting exposed ports for %s: %s", imgName, err)
+			} else {
+				envLog.Debugf("Exposed ports for %s: %v", imgName, ports)
+
+				lock.Lock()
+				imgPorts[imgName] = ports
+				lock.Unlock()
+			}
+
+			rch <- struct{}{}
+		}(imgName, img)
+	}
+
+	// Fetch images
+	for imgName := range toFetch {
+		go func(imgName string) {
+			if err := ceng.FetchImage(ctx, imgName); err != nil {
+				errch <- errors.Wrapf(err, "Error fetching image %s", imgName)
+			}
+
+			rch <- struct{}{}
+		}(imgName)
+	}
+
+	done := 0
+
+	for done < total {
+		select {
+		case err := <-errch:
+			return nil, errors.WithStack(err)
+
+		case <-rch:
+			done++
+		}
+	}
+
+	return imgPorts, nil
 }
 
 type executeResult struct {
@@ -319,7 +377,7 @@ func (e *Env) Terminate() error {
 
 	// Stop containers
 	for _, cid := range e.containers {
-		if err = e.ceng.RemoveContainer(cid); err != nil {
+		if err = e.ceng.RemoveContainer(e.params.Ctx, cid); err != nil {
 			envLog.Errorf("Error terminating env %s: %s", e.id, err)
 		}
 
@@ -332,13 +390,13 @@ func (e *Env) Terminate() error {
 
 	// Remove images
 	for tag := range e.builtImages {
-		if err := e.ceng.RemoveImage(tag); err != nil {
+		if err := e.ceng.RemoveImage(e.params.Ctx, tag); err != nil {
 			envLog.Warningf("Error removing image: %+v", err)
 		}
 	}
 
 	// Remove network
-	err = e.ceng.RemoveNetwork(e.netId)
+	err = e.ceng.RemoveNetwork(e.params.Ctx, e.netId)
 
 	if err == nil {
 		envLog.Debugf("Network %s removed", e.netId)

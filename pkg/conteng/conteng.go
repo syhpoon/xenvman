@@ -24,7 +24,10 @@
 
 package conteng
 
-import "io"
+import (
+	"context"
+	"io"
+)
 
 type NetworkId = string
 
@@ -45,15 +48,16 @@ type RunContainerParams struct {
 }
 
 type ContainerEngine interface {
-	CreateNetwork(name string) (NetworkId, string, error)
-	BuildImage(tag string, buildContext io.Reader) error
-	GetImagePorts(tag string) ([]uint16, error)
-	RemoveImage(tag string) error
-	RunContainer(name, tag string, params RunContainerParams) (string, error)
+	CreateNetwork(ctx context.Context, name string) (NetworkId, string, error)
+	BuildImage(ctx context.Context, imgName string, buildContext io.Reader) error
+	GetImagePorts(ctx context.Context, imgName string) ([]uint16, error)
+	RemoveImage(ctx context.Context, imgName string) error
+	RunContainer(ctx context.Context, name, tag string,
+		params RunContainerParams) (string, error)
 	// Stop and remove
-	RemoveContainer(id string) error
-	RemoveNetwork(id string) error
-	FetchImage(tag string) error
+	RemoveContainer(ctx context.Context, id string) error
+	RemoveNetwork(ctx context.Context, id string) error
+	FetchImage(ctx context.Context, imgName string) error
 
 	Terminate()
 }

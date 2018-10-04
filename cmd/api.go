@@ -62,9 +62,9 @@ var apiRunCmd = &cobra.Command{
 		// Start API server
 		apiParams := api.DefaultServerParams(ctx)
 
-		centCtx, centCancel := context.WithCancel(context.Background())
+		cengCtx, centCancel := context.WithCancel(context.Background())
 
-		if contEng, err := buildContEng(centCtx); err != nil {
+		if contEng, err := buildContEng(); err != nil {
 			apiLog.Errorf("Error building container engine: %s", err)
 		} else {
 			apiParams.ContEng = contEng
@@ -83,6 +83,7 @@ var apiRunCmd = &cobra.Command{
 		apiParams.BaseTplDir = config.GetString("tpl.tpl-dir")
 		apiParams.BaseWsDir = config.GetString("tpl.ws-dir")
 		apiParams.BaseMountDir = config.GetString("tpl.mount-dir")
+		apiParams.CengCtx = cengCtx
 
 		// Ports
 		prange, err := parsePorts()
@@ -107,16 +108,14 @@ var apiRunCmd = &cobra.Command{
 	},
 }
 
-func buildContEng(ctx context.Context) (conteng.ContainerEngine, error) {
+func buildContEng() (conteng.ContainerEngine, error) {
 	ceng := config.GetString("container-engine")
 
 	switch ceng {
 	case "docker":
 		apiLog.Infof("Using Docker container engine")
 
-		params := conteng.DockerEngineParams{
-			Ctx: ctx,
-		}
+		params := conteng.DockerEngineParams{}
 
 		return conteng.NewDockerEngine(params)
 	default:

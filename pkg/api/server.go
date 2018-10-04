@@ -56,6 +56,7 @@ type ServerParams struct {
 	BaseMountDir  string
 	ExportAddress string
 	Ctx           context.Context
+	CengCtx       context.Context
 }
 
 func DefaultServerParams(ctx context.Context) ServerParams {
@@ -139,10 +140,6 @@ func (s *Server) setupHandlers() {
 
 // Body: envDef structure
 func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
-	ctx, cancel := context.WithCancel(s.params.Ctx)
-	defer cancel()
-
-	req = req.WithContext(ctx)
 	defer req.Body.Close()
 
 	body, err := ioutil.ReadAll(req.Body)
@@ -182,7 +179,7 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 		BaseWsDir:     s.params.BaseWsDir,
 		BaseMountDir:  s.params.BaseMountDir,
 		ExportAddress: s.params.ExportAddress,
-		Ctx:           ctx,
+		Ctx:           s.params.CengCtx,
 	})
 
 	if err != nil {
