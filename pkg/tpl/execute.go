@@ -42,11 +42,11 @@ var errCancelled = errors.New("Cancelled execution")
 const executeFunctionName = "execute"
 
 type ExecuteParams struct {
-	BaseTplDir   string
-	BaseWsDir    string
-	BaseMountDir string
-	TplParams    def.TplParams
-	Ctx          context.Context
+	TplDir    string
+	WsDir     string
+	MountDir  string
+	TplParams def.TplParams
+	Ctx       context.Context
 }
 
 func Execute(envId, tplName string, tplIndex int, params ExecuteParams) (tpl *Tpl, err error) {
@@ -66,7 +66,7 @@ func Execute(envId, tplName string, tplIndex int, params ExecuteParams) (tpl *Tp
 	// Setup library
 	setupLib(vm)
 
-	jsFile, dataDir, err := getTplPaths(tplName, params.BaseTplDir)
+	jsFile, dataDir, err := getTplPaths(tplName, params.TplDir)
 
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -86,11 +86,11 @@ func Execute(envId, tplName string, tplIndex int, params ExecuteParams) (tpl *Tp
 		return nil, errors.Wrapf(err, "Error executing tpl %s", tplName)
 	}
 
-	// /<base-dir>/<env-id>/<tpl-name>/<tpl-idx>
-	wsDir := filepath.Join(params.BaseWsDir, envId, tplName,
+	// /<ws-dir>/<tpl-name>/<tpl-idx>
+	wsDir := filepath.Join(params.WsDir, tplName,
 		fmt.Sprintf("%d", tplIndex))
 
-	mountDir := filepath.Join(params.BaseMountDir, envId, "mounts")
+	mountDir := filepath.Join(params.MountDir, "mounts")
 
 	tpl = &Tpl{
 		envId:    envId,

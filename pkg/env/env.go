@@ -27,6 +27,8 @@ package env
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -44,6 +46,8 @@ var envLog = logger.GetLogger("xenvman.pkg.api.env")
 // Configured environment
 type Env struct {
 	id            string
+	wsDir         string
+	mountDir      string
 	ports         ports
 	ed            *def.Env
 	ceng          conteng.ContainerEngine
@@ -53,6 +57,7 @@ type Env struct {
 	keepAliveChan chan bool
 	builtImages   map[string]struct{}
 	params        Params
+	tpls          []*tpl.Tpl
 	sync.RWMutex
 }
 
@@ -71,6 +76,8 @@ func NewEnv(params Params) (*Env, error) {
 	id := newEnvId(params.EnvDef.Name)
 	env := &Env{
 		id:            id,
+		wsDir:         filepath.Join(params.BaseWsDir, id),
+		mountDir:      filepath.Join(params.BaseMountDir, id),
 		ed:            params.EnvDef,
 		ceng:          params.ContEng,
 		keepAliveChan: make(chan bool, 1),
@@ -83,10 +90,12 @@ func NewEnv(params Params) (*Env, error) {
 
 	var containers []*tpl.Container
 
-	tpls, err := executeTemplates(params.Ctx, id, params)
+	tpls, err := env.executeTemplates()
 
 	if err != nil {
 		return nil, errors.WithStack(err)
+	} else {
+		env.tpls = tpls
 	}
 
 	for _, t := range tpls {
@@ -296,13 +305,13 @@ func (er executeResults) Swap(i, j int)      { er[i], er[j] = er[j], er[i] }
 func (er executeResults) Less(i, j int) bool { return er[i].idx < er[j].idx }
 
 // Execute templates in parallel
-func executeTemplates(pctx context.Context, id string, params Params) ([]*tpl.Tpl, error) {
+func (e *Env) executeTemplates() ([]*tpl.Tpl, error) {
 	tplIdx := map[string]int{}
 
-	ctx, cancel := context.WithCancel(pctx)
+	ctx, cancel := context.WithCancel(e.params.Ctx)
 	defer cancel()
 
-	tpls := params.EnvDef.Templates
+	tpls := e.params.EnvDef.Templates
 	rch := make(chan *executeResult, len(tpls))
 	errch := make(chan error, len(tpls))
 
@@ -311,13 +320,13 @@ func executeTemplates(pctx context.Context, id string, params Params) ([]*tpl.Tp
 		tplIdx[template.Tpl]++
 
 		go func(tplObj *def.Tpl, idx int) {
-			t, err := tpl.Execute(id, tplObj.Tpl, idx,
+			t, err := tpl.Execute(e.id, tplObj.Tpl, idx,
 				tpl.ExecuteParams{
-					BaseTplDir:   params.BaseTplDir,
-					BaseWsDir:    params.BaseWsDir,
-					BaseMountDir: params.BaseMountDir,
-					TplParams:    tplObj.Parameters,
-					Ctx:          ctx,
+					TplDir:    e.params.BaseTplDir,
+					WsDir:     e.wsDir,
+					MountDir:  e.mountDir,
+					TplParams: tplObj.Parameters,
+					Ctx:       ctx,
 				})
 
 			if err != nil {
@@ -386,6 +395,21 @@ func (e *Env) Terminate() error {
 
 	if err != nil {
 		return err
+	}
+
+	// Clean up workspace and mount dirs
+	envLog.Debugf("[%s] Removing workspace dir %s", e.id, e.wsDir)
+
+	if err := os.RemoveAll(e.wsDir); err != nil {
+		envLog.Errorf("[%s] Error removing workspace dir %s: %s",
+			e.id, e.wsDir, err)
+	}
+
+	envLog.Debugf("[%s] Removing mount dir %s", e.id, e.mountDir)
+
+	if err := os.RemoveAll(e.mountDir); err != nil {
+		envLog.Errorf("[%s] Error removing mount dir %s: %s",
+			e.id, e.mountDir, err)
 	}
 
 	// Remove images
