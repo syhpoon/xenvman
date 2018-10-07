@@ -1,3 +1,9 @@
+---
+layout: page
+title: xenvman
+tagline: Extensible environment manager for containers
+---
+
 # Overview
 
 xenvman is an extensible environment manager which can be used to
@@ -18,3 +24,8 @@ xenvman allows you to:
 
 # Installation
 
+# Templates
+
+# API
+
+# Clients
