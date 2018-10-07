@@ -6,7 +6,7 @@ create environments for testing microservices.
 Environment is an isolated bubble where one or more containers can be run 
 together in order to provide a necessary playground for infrastructure testing.
 
-![Overview](docs/img/overview.png)
+![Overview](img/overview.png)
 
 xenvman allows you to:
 
@@ -15,3 +15,6 @@ xenvman allows you to:
 * Spawn as many containers as needed inside an environment
 * Link containers together in a single isolated network
 * Expose container ports for external access
+
+# Installation
+
