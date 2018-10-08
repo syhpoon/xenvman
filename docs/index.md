@@ -1,5 +1,5 @@
 ---
-layout: page
+layout: default
 title: xenvman
 tagline: Extensible environment manager for containers
 ---
