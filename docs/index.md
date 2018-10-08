@@ -1,9 +1,3 @@
----
-layout: default
-title: xenvman
-tagline: Extensible environment manager for containers
----
-
 # Overview
 
 xenvman is an extensible environment manager which can be used to
