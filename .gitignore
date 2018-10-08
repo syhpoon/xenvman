@@ -9,6 +9,7 @@
 cmd/xenvman
 repos/
 etc/xenvman.my.toml
+xenvman
 
 tmp/
 CALL.json

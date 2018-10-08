@@ -8,10 +8,24 @@ together in order to provide a necessary playground for infrastructure testing.
 
 ![Overview](docs/img/overview.png)
 
-xenvman allows you to:
+xenvman features include:
 
 * Define environment templates using JavaScript
 * Create images on the fly
 * Spawn as many containers as needed inside an environment
 * Link containers together in a single isolated network
 * Expose container ports for external access
+
+# Installation
+
+## Download release
+
+## Compilation from source
+
+# Templates
+
+## Javascript API
+
+# HTTP API
+
+# Clients
