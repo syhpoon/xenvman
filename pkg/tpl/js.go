@@ -29,13 +29,14 @@ import (
 
 	"encoding/base64"
 
+	"github.com/pkg/errors"
 	"github.com/robertkrimen/otto"
 )
 
 func libBase() map[string]interface{} {
 	return map[string]interface{}{
-		"IsArray":     jsIsArray,
-		"IsUndefined": jsIsUndefined,
+		"IsArray":   jsIsArray,
+		"IsDefined": jsIsDefined,
 	}
 }
 
@@ -43,15 +44,16 @@ func jsIsArray(obj otto.Value) bool {
 	return obj.Class() == "Array"
 }
 
-func jsIsUndefined(obj otto.Value) bool {
-	return obj.IsUndefined()
+func jsIsDefined(obj otto.Value) bool {
+	return !obj.IsUndefined() && !obj.IsNull()
 }
 
 func libType() map[string]interface{} {
 	return map[string]interface{}{
-		"EnsureString":         jsEnsureString,
-		"EnsureArrayOfStrings": jsEnsureArrayOfStrings,
-		"FromBase64":           jsFromBase64,
+		"EnsureString":        jsEnsureString,
+		"EnsureListOfStrings": jsEnsureListOfStrings,
+		"EnsureListOfNumbers": jsEnsureListOfNumbers,
+		"FromBase64":          jsFromBase64,
 	}
 }
 
@@ -63,17 +65,17 @@ func jsEnsureString(name string, obj otto.Value) {
 	v, err := obj.Export()
 
 	if err != nil {
-		panic(fmt.Sprintf("%s: Error exporting js value: %s", name, err))
+		panic(errors.Errorf("%s: Error exporting js value: %s", name, err))
 	}
 
 	_, ok := v.(string)
 
 	if !ok {
-		panic(fmt.Sprintf("%s: Expected string but got %T", name, v))
+		panic(errors.Errorf("%s: Expected string but got %T", name, v))
 	}
 }
 
-func jsEnsureArrayOfStrings(name string, obj otto.Value) {
+func jsEnsureListOfStrings(name string, obj otto.Value) {
 	if obj.IsNull() || obj.IsUndefined() {
 		return
 	}
@@ -81,18 +83,46 @@ func jsEnsureArrayOfStrings(name string, obj otto.Value) {
 	v, err := obj.Export()
 
 	if err != nil {
-		panic(fmt.Sprintf("%s: Error exporting js value: %s", name, err))
+		panic(errors.Errorf("%s: Error exporting js value: %s", name, err))
 	}
 
 	arr, ok := v.([]interface{})
 
 	if !ok {
-		panic(fmt.Sprintf("%s: Expected array of strings but got %T", name, v))
+		panic(errors.Errorf("%s: Expected array of strings but got %T",
+			name, v))
 	}
 
 	for _, val := range arr {
 		if _, ok := val.(string); !ok {
-			panic(fmt.Sprintf("%s: Found non-string array element: %T", name, val))
+			panic(errors.Errorf("%s: Found non-string array element: %T",
+				name, val))
+		}
+	}
+}
+
+func jsEnsureListOfNumbers(name string, obj otto.Value) {
+	if obj.IsNull() || obj.IsUndefined() {
+		return
+	}
+
+	v, err := obj.Export()
+
+	if err != nil {
+		panic(errors.Errorf("%s: Error exporting js value: %s", name, err))
+	}
+
+	arr, ok := v.([]interface{})
+
+	if !ok {
+		panic(errors.Errorf("%s: Expected array of strings but got %T",
+			name, v))
+	}
+
+	for _, val := range arr {
+		if _, ok := val.(float64); !ok {
+			panic(errors.Errorf("%s: Found non-int array element: %T",
+				name, val))
 		}
 	}
 }
@@ -101,19 +131,19 @@ func jsFromBase64(name, obj otto.Value) []byte {
 	v, err := obj.Export()
 
 	if err != nil {
-		panic(fmt.Sprintf("%s: Error exporting js value: %s", name, err))
+		panic(errors.Errorf("%s: Error exporting js value: %s", name, err))
 	}
 
 	s, ok := v.(string)
 
 	if !ok {
-		panic(fmt.Sprintf("%s: Expected string but got %T", name, v))
+		panic(errors.Errorf("%s: Expected string but got %T", name, v))
 	}
 
 	b, err := base64.StdEncoding.DecodeString(s)
 
 	if err != nil {
-		panic(fmt.Sprintf("%s: Error decoding base64: %s", name, err))
+		panic(errors.Errorf("%s: Error decoding base64: %s", name, err))
 	}
 
 	return b
@@ -121,6 +151,7 @@ func jsFromBase64(name, obj otto.Value) []byte {
 }
 
 func setupLib(vm *otto.Otto) {
+	_ = vm.Set("fmt", fmt.Sprintf)
 	_ = vm.Set("lib", libBase())
 	_ = vm.Set("type", libType())
 }

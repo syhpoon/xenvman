@@ -25,62 +25,33 @@
 package tpl
 
 import (
-	"context"
-	"fmt"
-	"os"
-	"strings"
-
-	"path/filepath"
-
 	"github.com/pkg/errors"
 )
 
-func getTplPaths(tpl, baseTplDir string) (string, string, error) {
-	tpl = strings.TrimSpace(tpl)
-	tplFile := fmt.Sprintf("%s.tpl.js", tpl)
+type Opts map[string]interface{}
 
-	if strings.Contains(tplFile, "..") {
-		return "", "",
-			errors.Errorf("Template name must not contain '..': %s", tpl)
-	}
-
-	if strings.HasPrefix(tplFile, "/") {
-		tpl = tpl[1:]
-	}
-
-	jsFile := filepath.Clean(filepath.Join(baseTplDir, tplFile))
-
-	if !strings.HasPrefix(jsFile, baseTplDir) {
-		return "", "", errors.Errorf("Invalid template name: %s", tpl)
-	}
-
-	dataDir := filepath.Clean(filepath.Join(baseTplDir,
-		fmt.Sprintf("%s.tpl.data", tpl)))
-
-	return jsFile, dataDir, nil
-}
-
-func makeDir(path string) {
-	if err := os.MkdirAll(path, 0755); err != nil {
-		panic(errors.Wrapf(err, "Error creating dir %s", path))
+func (o Opts) GetBool(key string, def bool) bool {
+	if v, ok := o[key]; ok {
+		if boolv, ok := v.(bool); !ok {
+			panic(errors.Errorf("Invalid type for opt %s, expected bool got %T",
+				key, v))
+		} else {
+			return boolv
+		}
+	} else {
+		return def
 	}
 }
 
-func verifyPath(path, base string) {
-	if !strings.HasPrefix(path, base) {
-		panic(errors.Errorf("Invalid path: %s", path))
-	}
-}
-
-func checkCancelled(ctx context.Context) {
-	if ctx == nil {
-		return
-	}
-
-	select {
-	case <-ctx.Done():
-		panic(errors.WithStack(errCancelled))
-	default:
-		return
+func (o Opts) GetInt(key string, def int) int {
+	if v, ok := o[key]; ok {
+		if intv, ok := v.(int); !ok {
+			panic(errors.Errorf("Invalid type for opt %s, expected int got %T",
+				key, v))
+		} else {
+			return intv
+		}
+	} else {
+		return def
 	}
 }

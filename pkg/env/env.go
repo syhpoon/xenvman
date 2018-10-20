@@ -27,6 +27,7 @@ package env
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -41,7 +42,7 @@ import (
 	"github.com/syhpoon/xenvman/pkg/tpl"
 )
 
-var envLog = logger.GetLogger("xenvman.pkg.api.env")
+var envLog = logger.GetLogger("xenvman.pkg.env.env")
 
 // Configured environment
 type Env struct {
@@ -72,9 +73,9 @@ type Params struct {
 	Ctx           context.Context
 }
 
-func NewEnv(params Params) (*Env, error) {
+func NewEnv(params Params) (env *Env, err error) {
 	id := newEnvId(params.EnvDef.Name)
-	env := &Env{
+	env = &Env{
 		id:            id,
 		wsDir:         filepath.Join(params.BaseWsDir, id),
 		mountDir:      filepath.Join(params.BaseMountDir, id),
@@ -85,6 +86,14 @@ func NewEnv(params Params) (*Env, error) {
 		builtImages:   map[string]struct{}{},
 	}
 
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.Errorf("Error creating env %s: %s", env.id, r)
+
+			env.Terminate()
+		}
+	}()
+
 	imagesToBuild := map[string]*tpl.BuildImage{}
 	imagesToFetch := map[string]*tpl.FetchImage{}
 
@@ -93,6 +102,7 @@ func NewEnv(params Params) (*Env, error) {
 	tpls, err := env.executeTemplates()
 
 	if err != nil {
+		env.Terminate()
 		return nil, errors.WithStack(err)
 	} else {
 		env.tpls = tpls
@@ -141,6 +151,8 @@ func NewEnv(params Params) (*Env, error) {
 	netId, sub, err := params.ContEng.CreateNetwork(params.Ctx, id)
 
 	if err != nil {
+		env.Terminate()
+
 		return nil, errors.Wrapf(err, "Error creating network")
 	}
 
@@ -149,10 +161,19 @@ func NewEnv(params Params) (*Env, error) {
 	ips, hosts, err := assignIps(sub, containers)
 
 	if err != nil {
+		env.Terminate()
+
 		return nil, errors.WithStack(err)
 	}
 
 	ports := make(ports)
+
+	// Interpolate container files
+	if err = interpolate(containers); err != nil {
+		env.Terminate()
+
+		return nil, errors.WithStack(err)
+	}
 
 	// Now create containers
 	for i, cont := range containers {
@@ -171,6 +192,8 @@ func NewEnv(params Params) (*Env, error) {
 			port, err := params.PortRange.NextPort()
 
 			if err != nil {
+				env.Terminate()
+
 				return nil, errors.WithStack(err)
 			}
 
@@ -196,6 +219,8 @@ func NewEnv(params Params) (*Env, error) {
 			cont.Hostname(), imgName, cparams)
 
 		if err != nil {
+			env.Terminate()
+
 			return nil, errors.Wrapf(err, "Error running container: %s", cont.Hostname())
 		}
 
@@ -214,6 +239,43 @@ func NewEnv(params Params) (*Env, error) {
 	}
 
 	return env, nil
+}
+
+func interpolate(containers []*tpl.Container) error {
+	i := interpolator{containers: containers}
+
+	for _, cont := range containers {
+		for _, file := range cont.ToInterpolate() {
+			// Get file mode
+			info, err := os.Stat(file)
+
+			if err != nil {
+				return errors.Wrapf(err, "Error getting file info %s", file)
+			}
+
+			data, err := ioutil.ReadFile(file)
+
+			if err != nil {
+				return errors.Wrapf(err, "Error reading file %s", file)
+			}
+
+			res, err := i.interpolate(string(data))
+
+			if err != nil {
+				return errors.WithStack(err)
+			}
+
+			err = ioutil.WriteFile(file, []byte(res), info.Mode())
+
+			if err != nil {
+				return errors.Wrapf(err, "Error saving file %s", file)
+			}
+
+			envLog.Debugf("Interpolated: %s", file)
+		}
+	}
+
+	return nil
 }
 
 func buildAndFetch(env *Env, toBuild map[string]*tpl.BuildImage,
@@ -332,7 +394,6 @@ func (e *Env) executeTemplates() ([]*tpl.Tpl, error) {
 			if err != nil {
 				errch <- errors.WithStack(err)
 			} else {
-
 				rch <- &executeResult{t: t, idx: idx}
 			}
 		}(template, idx)
@@ -340,14 +401,26 @@ func (e *Env) executeTemplates() ([]*tpl.Tpl, error) {
 
 	var results executeResults
 
-	for len(results) < len(tpls) {
+	var execErr error
+	count := 0
+
+	for count < len(tpls) {
 		select {
 		case err := <-errch:
-			return nil, errors.Wrapf(err, "Error in tpl execution")
+			if execErr == nil {
+				cancel()
+				execErr = errors.Wrapf(err, "Error in tpl execution")
+			}
 
 		case r := <-rch:
 			results = append(results, r)
 		}
+
+		count++
+	}
+
+	if execErr != nil {
+		return nil, execErr
 	}
 
 	sort.Sort(results)

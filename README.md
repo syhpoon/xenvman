@@ -8,7 +8,7 @@ together in order to provide a necessary playground for infrastructure testing.
 
 ![Overview](docs/img/overview.png)
 
-xenvman features include:
+xenvman allows you to:
 
 * Define environment templates using JavaScript
 * Create images on the fly

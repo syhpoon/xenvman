@@ -2,7 +2,7 @@
 default:
 	@echo Commands:
 	@echo "make fmt - Format Go code"
-	@echo "make test Run unit tests"
+	@echo "make test - Run unit tests"
 	@echo "make vet - Run go vet"
 	@echo "make deps" - Update vendor dependencies
 	@echo "make build" - Build xenvman
@@ -24,5 +24,5 @@ deps:
 
 prepare: fmt test vet
 
-build: deps
+build:
 	@go build -ldflags "-s -w" -o xenvman github.com/syhpoon/xenvman/cmd

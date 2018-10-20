@@ -105,6 +105,8 @@ func Execute(envId, tplName string, tplIndex int, params ExecuteParams) (tpl *Tp
 	_, err = vm.Call(executeFunctionName, nil, tpl, params.TplParams)
 
 	if err != nil {
+		executeLog.Errorf("%s", err.(*otto.Error).String())
+
 		return nil, errors.Wrapf(err, "Error calling %s function for %s",
 			executeFunctionName, tpl.name)
 	}

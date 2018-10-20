@@ -41,31 +41,41 @@ import (
 var contLog = logger.GetLogger("xenvman.pkg.tpl.container")
 
 type Container struct {
-	envId    string
-	tplName  string
-	tplIdx   int
-	name     string
-	image    string
-	environ  map[string]string
-	cmd      []string
-	ports    []uint16
-	dataDir  string
-	mountDir string
-	mounts   []*conteng.ContainerFileMount
-	ctx      context.Context
+	envId             string
+	tplName           string
+	tplIdx            int
+	name              string
+	image             string
+	cmd               []string
+	ports             []uint16
+	dataDir           string
+	mountDir          string
+	mounts            []*conteng.ContainerFileMount
+	environ           map[string]string
+	labels            map[string]string
+	needInterpolating map[string]bool
+	ctx               context.Context
 }
 
 func NewContainer(name, tplName string, tplIdx int) *Container {
 	return &Container{
-		tplName: tplName,
-		tplIdx:  tplIdx,
-		name:    name,
+		tplName:           tplName,
+		tplIdx:            tplIdx,
+		name:              name,
+		environ:           map[string]string{},
+		labels:            map[string]string{},
+		needInterpolating: map[string]bool{},
 	}
 }
 
 func (cont *Container) SetEnv(k, v string) {
 	checkCancelled(cont.ctx)
 	cont.environ[k] = v
+}
+
+func (cont *Container) SetLabel(k, v string) {
+	checkCancelled(cont.ctx)
+	cont.labels[k] = v
 }
 
 func (cont *Container) SetCmd(cmd ...string) {
@@ -94,6 +104,24 @@ func (cont *Container) Environ() map[string]string {
 	return cont.environ
 }
 
+func (cont *Container) Labels() map[string]string {
+	return cont.labels
+}
+
+func (cont *Container) GetLabel(label string) string {
+	return cont.labels[label]
+}
+
+func (cont *Container) ToInterpolate() []string {
+	var r []string
+
+	for k := range cont.needInterpolating {
+		r = append(r, k)
+	}
+
+	return r
+}
+
 func (cont *Container) Cmd() []string {
 	return cont.cmd
 }
@@ -103,7 +131,7 @@ func (cont *Container) Mounts() []*conteng.ContainerFileMount {
 }
 
 // Create a file in the mount dir from data and mount it into a container
-func (cont *Container) MountString(data, contFile string, mode int, readonly bool) {
+func (cont *Container) MountString(data, contFile string, mode int, opts Opts) {
 	id := lib.NewId()
 	path := filepath.Clean(filepath.Join(cont.mountDir, id))
 	verifyPath(path, cont.mountDir)
@@ -114,16 +142,28 @@ func (cont *Container) MountString(data, contFile string, mode int, readonly boo
 		panic(errors.Wrapf(err, "Error copying file %s", path))
 	}
 
-	cont.doMount(path, contFile, mode, readonly)
+	cont.doMount(path, contFile, opts)
 }
 
 // Copy a file from data dir to mount dir and mount it into a container
-func (cont *Container) MountData(dataFile, contFile string, mode int, readonly bool) {
+func (cont *Container) MountData(dataFile, contFile string, opts Opts) {
 	dataPath := filepath.Clean(filepath.Join(cont.dataDir, dataFile))
 	mountPath := filepath.Clean(filepath.Join(cont.mountDir, dataFile))
 
 	verifyPath(dataPath, cont.dataDir)
 	verifyPath(mountPath, cont.mountDir)
+
+	if _, err := os.Stat(dataPath); os.IsNotExist(err) {
+		if _, ok := opts["skip-if-nonexistent"]; ok {
+			contLog.Infof(
+				"[%s:%s] Cannot mount %s as it doesn't exist. Skipping",
+				cont.envId, cont.Hostname(), dataPath)
+
+			return
+		} else {
+			panic(errors.Errorf("Data file does not exist: %s", dataPath))
+		}
+	}
 
 	checkCancelled(cont.ctx)
 
@@ -131,17 +171,23 @@ func (cont *Container) MountData(dataFile, contFile string, mode int, readonly b
 		panic(errors.Wrapf(err, "Error copying data to mount dir"))
 	}
 
-	cont.doMount(mountPath, contFile, mode, readonly)
+	cont.doMount(mountPath, contFile, opts)
 }
 
-func (cont *Container) doMount(hostFile, contFile string, mode int, readonly bool) {
-	contLog.Debugf("[%s] Mounting %s to %s", cont.envId, hostFile, contFile)
+func (cont *Container) doMount(hostFile, contFile string, opts Opts) {
+
+	contLog.Debugf("[%s] Mounting %s to %s [opts=%+v]",
+		cont.envId, hostFile, contFile, opts)
 
 	cont.mounts = append(cont.mounts, &conteng.ContainerFileMount{
 		HostFile:      hostFile,
 		ContainerFile: contFile,
-		Readonly:      readonly,
+		Readonly:      opts.GetBool("readonly", true),
 	})
+
+	if opts.GetBool("interpolate", false) {
+		cont.needInterpolating[hostFile] = true
+	}
 }
 
 func (cont *Container) Template() (string, int) {

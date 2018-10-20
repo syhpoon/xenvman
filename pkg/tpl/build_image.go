@@ -31,6 +31,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"text/template"
 
 	"github.com/mholt/archiver"
 	"github.com/pkg/errors"
@@ -88,6 +89,42 @@ func (img *BuildImage) AddFileToWorkspace(file string, data interface{}, mode in
 
 	if err := ioutil.WriteFile(path, bs, os.FileMode(mode)); err != nil {
 		panic(errors.Wrapf(err, "Error copying file %s", file))
+	}
+}
+
+func (img *BuildImage) InterpolateWorkspaceFile(file string, data interface{}) {
+	path := filepath.Clean(filepath.Join(img.wsDir, file))
+	verifyPath(path, img.wsDir)
+
+	info, err := os.Stat(path)
+
+	if err != nil {
+		panic(errors.Wrapf(err, "Error getting file info %s", file))
+	}
+
+	raw, err := ioutil.ReadFile(path)
+
+	if err != nil {
+		panic(errors.Wrapf(err, "Error reading file %s", file))
+	}
+
+	t, err := template.New("").Parse(string(raw))
+
+	if err != nil {
+		panic(errors.Wrapf(err, "Error parsing template from %s", file))
+	}
+
+	var b bytes.Buffer
+	out := bufio.NewWriter(&b)
+
+	if err = t.Execute(out, data); err != nil {
+		panic(errors.Wrapf(err, "Error executing template from %s", file))
+	}
+
+	out.Flush()
+
+	if err := ioutil.WriteFile(path, b.Bytes(), info.Mode()); err != nil {
+		panic(errors.Wrapf(err, "Error saving template %s", path))
 	}
 }
 

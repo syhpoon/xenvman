@@ -31,6 +31,8 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/syhpoon/xenvman/pkg/lib"
 	"github.com/syhpoon/xenvman/pkg/logger"
 )
@@ -67,7 +69,7 @@ func (tpl *Tpl) BuildImage(name string) *BuildImage {
 	checkCancelled(tpl.ctx)
 
 	if err := os.MkdirAll(wsDir, 0755); err != nil {
-		panic(fmt.Sprintf("%+v", err))
+		panic(errors.WithStack(err))
 	}
 
 	img := &BuildImage{
@@ -103,7 +105,7 @@ func (tpl *Tpl) FetchImage(imgName string) *FetchImage {
 	checkCancelled(tpl.ctx)
 
 	if err := os.MkdirAll(wsDir, 0755); err != nil {
-		panic(fmt.Sprintf("%+v", err))
+		panic(errors.WithStack(err))
 	}
 
 	img := &FetchImage{
