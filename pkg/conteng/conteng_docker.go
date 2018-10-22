@@ -268,6 +268,12 @@ func (de *DockerEngine) FetchImage(ctx context.Context, imgName string) error {
 		dockerLog.Debugf("Image fetched: %s", imgName)
 	}
 
+	err = de.cl.ImageTag(ctx, imgName, imgName)
+
+	if err != nil {
+		return errors.Wrapf(err, "Error tagging image %s", imgName)
+	}
+
 	return err
 }
 
@@ -416,7 +422,11 @@ func (de *DockerEngine) getAuthForImage(imageName, file string) (string, error) 
 		ServerAddress: repoInfo.Index.Name,
 	}
 
-	authConf := conf.AuthConfigs[repoInfo.Index.Name]
+	authConf, ok := conf.AuthConfigs[repoInfo.Index.Name]
+
+	if !ok {
+		return "", nil
+	}
 
 	if authConf.Username != "" {
 		ac.Username = authConf.Username
