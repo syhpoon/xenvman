@@ -24,6 +24,8 @@ xenvman allows you to:
 
 # Templates
 
+## Interpolation
+
 ## Javascript API
 
 # HTTP API

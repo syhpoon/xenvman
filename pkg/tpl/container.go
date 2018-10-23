@@ -73,9 +73,19 @@ func (cont *Container) SetEnv(k, v string) {
 	cont.environ[k] = v
 }
 
-func (cont *Container) SetLabel(k, v string) {
+func (cont *Container) SetLabel(k string, v interface{}) {
 	checkCancelled(cont.ctx)
-	cont.labels[k] = v
+
+	val := ""
+
+	switch vv := v.(type) {
+	case string:
+		val = vv
+	default:
+		val = fmt.Sprintf("%v", val)
+	}
+
+	cont.labels[k] = val
 }
 
 func (cont *Container) SetCmd(cmd ...string) {

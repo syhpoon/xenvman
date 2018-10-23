@@ -139,14 +139,6 @@ func NewEnv(params Params) (env *Env, err error) {
 		return nil, errors.WithStack(err)
 	}
 
-	// Fetch images
-	for tag := range imagesToFetch {
-		if err := params.ContEng.FetchImage(params.Ctx, tag); err != nil {
-			env.Terminate()
-			return nil, errors.Wrapf(err, "Error fetching image %s", tag)
-		}
-	}
-
 	// Create network
 	netId, sub, err := params.ContEng.CreateNetwork(params.Ctx, id)
 

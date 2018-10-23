@@ -51,6 +51,7 @@ func jsIsDefined(obj otto.Value) bool {
 func libType() map[string]interface{} {
 	return map[string]interface{}{
 		"EnsureString":        jsEnsureString,
+		"EnsureNumber":        jsEnsureNumber,
 		"EnsureListOfStrings": jsEnsureListOfStrings,
 		"EnsureListOfNumbers": jsEnsureListOfNumbers,
 		"FromBase64":          jsFromBase64,
@@ -72,6 +73,24 @@ func jsEnsureString(name string, obj otto.Value) {
 
 	if !ok {
 		panic(errors.Errorf("%s: Expected string but got %T", name, v))
+	}
+}
+
+func jsEnsureNumber(name string, obj otto.Value) {
+	if obj.IsNull() || obj.IsUndefined() {
+		return
+	}
+
+	v, err := obj.Export()
+
+	if err != nil {
+		panic(errors.Errorf("%s: Error exporting js value: %s", name, err))
+	}
+
+	_, ok := v.(float64)
+
+	if !ok {
+		panic(errors.Errorf("%s: Expected number but got %T", name, v))
 	}
 }
 

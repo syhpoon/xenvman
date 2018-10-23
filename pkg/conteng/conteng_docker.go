@@ -260,7 +260,7 @@ func (de *DockerEngine) FetchImage(ctx context.Context, imgName string) error {
 		return err
 	}
 
-	_, err = de.cl.ImagePull(ctx, imgName, types.ImagePullOptions{
+	out, err := de.cl.ImagePull(ctx, imgName, types.ImagePullOptions{
 		RegistryAuth: auth,
 	})
 
@@ -268,11 +268,7 @@ func (de *DockerEngine) FetchImage(ctx context.Context, imgName string) error {
 		dockerLog.Debugf("Image fetched: %s", imgName)
 	}
 
-	err = de.cl.ImageTag(ctx, imgName, imgName)
-
-	if err != nil {
-		return errors.Wrapf(err, "Error tagging image %s", imgName)
-	}
+	io.Copy(ioutil.Discard, out)
 
 	return err
 }
