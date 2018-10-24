@@ -82,7 +82,7 @@ func (cont *Container) SetLabel(k string, v interface{}) {
 	case string:
 		val = vv
 	default:
-		val = fmt.Sprintf("%v", val)
+		val = fmt.Sprintf("%v", vv)
 	}
 
 	cont.labels[k] = val
