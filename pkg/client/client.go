@@ -129,6 +129,7 @@ func (cl *Client) NewEnv(envDef *def.Env) (*Env, error) {
 	if r.Env != nil {
 		e.Exported = r.Env
 		e.httpClient = cl.httpClient
+		e.serverAddress = cl.params.ServerAddress
 	}
 
 	return e, nil

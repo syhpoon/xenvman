@@ -16,6 +16,8 @@ xenvman allows you to:
 * Link containers together in a single isolated network
 * Expose container ports for external access
 
+For a detailed example take a look at [tutorial](docs/tutorial.md).
+
 # Installation
 
 ## Download release
@@ -23,8 +25,12 @@ xenvman allows you to:
 ## Compilation from source
 
 # Templates
+## Workspace directory
+## Mount directory
 
 ## Interpolation
+### Workspace files
+### Mounted files
 
 ## Javascript API
 

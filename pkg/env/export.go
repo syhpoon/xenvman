@@ -24,6 +24,8 @@
 
 package env
 
+import "github.com/pkg/errors"
+
 type ContainerData struct {
 	// <internal port> -> "<host>:<external port>"
 	Ports map[int]string `json:"ports"`
@@ -43,4 +45,26 @@ type TplData struct {
 type Exported struct {
 	Id        string                `json:"id"`
 	Templates map[string][]*TplData `json:"templates"` // tpl name -> [TplData]
+}
+
+func (e *Exported) GetContainer(tplName string, tplIdx int,
+	contName string) (*ContainerData, error) {
+	tpls, ok := e.Templates[tplName]
+
+	if !ok {
+		return nil, errors.Errorf("Template not found: %s", tplName)
+	}
+
+	if tplIdx >= len(tpls) {
+		return nil, errors.Errorf("Template %s index %d not found",
+			tplName, tplIdx)
+	}
+
+	cont, ok := tpls[0].Containers[contName]
+
+	if !ok {
+		return nil, errors.Errorf("Container not found: %s", contName)
+	}
+
+	return cont, nil
 }
