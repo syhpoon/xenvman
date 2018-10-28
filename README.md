@@ -36,11 +36,11 @@ where a template is a a small program written in JavaScript
 which defines what images to build/fetch, what and how many containers
 to spawn, what files to mount inside containers, what ports to expose etc.
 
-A template script is run by an embedded JS interpreter inside `xenvman` server.
+A template script is run by embedded JS interpreter inside `xenvman` server.
 One template is just one javascript file located withing a template base directory (defined by `tpl.base-dir` configuration parameter, or `XENVMAN_TPL.BASE_DIR` environment variable).
 
 A template file name must follow the format: `<name>.tpl.js` and can be located
-either directly withing tpl base dir or in any sub-directory.
+either directly within tpl base dir or in any sub-directory.
 
 A fully qualified template name consists of javascript file name without `.tpl.js` suffix, preceeded by directory names relative to template base dir.
 
@@ -50,8 +50,8 @@ Let's say our base dir is `/opt/xenvman/base` and it looks like this:
 ```
 /opt/xenvman/base/
    db/
-      mysql.data.js/
-      mongo.data.js/
+      mysql.tpl.data/
+      mongo.tpl.data/
       mysql.tpl.js
       mongo.tpl.js
    custom.tpl.data/
@@ -73,11 +73,11 @@ Data dir must be located inside the same dir where template file is
 and must be named using the following format: `<name>.tpl.data`, where `<name>`
 is the same template name as in main json file.
 
-Tpl javascript API provides function to copy files from data dir to image
+Template javascript API provides functions to copy files from data dir to image
 workspace, mount them inside containers etc.
 
-All files in data directory are never changed by a template directly,
-they are always copied when needed.
+Please note,that all files in data directory are never changed
+by a template directly, they are always copied when needed.
 
 ## Workspace directory
 
@@ -103,12 +103,13 @@ and their relations.
 
 ![Template directories](docs/img/dirs.png)
 
+## Javascript API
+
 ## Interpolation
 ### Workspace files
 ### Mounted files
 
-## Javascript API
-
 # HTTP API
 
 # Clients
+## Golang
