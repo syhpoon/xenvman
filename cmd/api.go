@@ -80,7 +80,7 @@ var apiRunCmd = &cobra.Command{
 
 		apiParams.Listener = listener
 		apiParams.ExportAddress = config.GetString("api.export-address")
-		apiParams.BaseTplDir = config.GetString("tpl.tpl-dir")
+		apiParams.BaseTplDir = config.GetString("tpl.base-dir")
 		apiParams.BaseWsDir = config.GetString("tpl.ws-dir")
 		apiParams.BaseMountDir = config.GetString("tpl.mount-dir")
 		apiParams.CengCtx = cengCtx
