@@ -24,50 +24,32 @@
 
 package env
 
-import (
-	"github.com/syhpoon/xenvman/pkg/tpl"
-)
+import "fmt"
 
-type interpolator struct {
-	containers []*tpl.Container
+// This one is used to interpolate readiness check parameters
+type readinessInterpolator struct {
+	externalAddress string
+	ports           map[string]map[uint16]uint16
 }
 
-// Return a list of containers which have one of the provided labels set
-// A label is considered set when it has any non-empty label value
-func (ip *interpolator) EnvContainersWithLabels(labels ...string) []*tpl.Container {
-	var res []*tpl.Container
-
-	ls := map[string]bool{}
-
-	for _, l := range labels {
-		ls[l] = true
-	}
-
-	for _, c := range ip.containers {
-		for label := range c.Labels() {
-			if ls[label] {
-				res = append(res, c)
-				break
-			}
-		}
-	}
-
-	return res
+// Return an external address associated with xenvman api server
+func (ri *readinessInterpolator) ExternalAddress() string {
+	return ri.externalAddress
 }
 
-// Return a container possesing a given label.
-// Empty value matches any label value
-// If more than one containers match, one of them is returned in arbitrary order
-func (ip *interpolator) EnvContainerWithLabel(label, value string) *tpl.Container {
-	for _, c := range ip.containers {
-		for l, v := range c.Labels() {
-			if label == l {
-				if value == "" || value == v {
-					return c
-				}
-			}
-		}
+func (ri *readinessInterpolator) ExposedContainerPort(container string,
+	port int) uint16 {
+	p, ok := ri.ports[container]
+
+	if !ok {
+		panic(fmt.Sprintf("No ports for container %s", container))
 	}
 
-	return nil
+	eport, ok := p[uint16(port)]
+
+	if !ok {
+		panic(fmt.Sprintf("Port %d is not exposed for %s", port, container))
+	}
+
+	return eport
 }

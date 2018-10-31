@@ -130,7 +130,7 @@ func NewEnv(params Params) (env *Env, err error) {
 		}
 	}
 
-	imgPorts, err := buildAndFetch(env, imagesToBuild, imagesToFetch,
+	imgPorts, err := env.buildAndFetch(imagesToBuild, imagesToFetch,
 		params.ContEng, params.Ctx)
 
 	if err != nil {
@@ -161,7 +161,7 @@ func NewEnv(params Params) (env *Env, err error) {
 	ports := make(ports)
 
 	// Interpolate container files
-	if err = interpolate(containers); err != nil {
+	if err = env.interpolate(containers); err != nil {
 		env.Terminate()
 
 		return nil, errors.WithStack(err)
@@ -221,6 +221,13 @@ func NewEnv(params Params) (env *Env, err error) {
 
 	env.ports = ports
 
+	// Perform readiness checks
+	if err := env.waitUntilReady(); err != nil {
+		env.Terminate()
+
+		return nil, errors.Wrapf(err, "Error running readiness checks")
+	}
+
 	envLog.Infof("New env created: %s", id)
 
 	if params.EnvDef.Options.KeepAlive != 0 {
@@ -233,8 +240,72 @@ func NewEnv(params Params) (env *Env, err error) {
 	return env, nil
 }
 
-func interpolate(containers []*tpl.Container) error {
-	i := interpolator{containers: containers}
+func (env *Env) waitUntilReady() error {
+	var checks []tpl.ReadinessCheck
+
+	for _, t := range env.tpls {
+		for _, check := range t.GetReadinessChecks() {
+
+			intrp := &readinessInterpolator{
+				externalAddress: env.params.ExportAddress,
+				ports:           env.ports[t.GetName()][t.GetIdx()],
+			}
+
+			if err := check.InterpolateParameters(intrp); err != nil {
+				return errors.Wrapf(err,
+					"Error interpolating readiness check parameters: %s",
+					check.String())
+			}
+
+			checks = append(checks, check)
+		}
+	}
+
+	if len(checks) == 0 {
+		envLog.Infof("No readiness checks for %s", env.id)
+
+		return nil
+	}
+
+	ctx, cancel := context.WithCancel(env.params.Ctx)
+	defer cancel()
+
+	total := len(checks)
+	errCh := make(chan error, total)
+	rch := make(chan struct{}, total)
+
+	for _, check := range checks {
+		go func(check tpl.ReadinessCheck) {
+			if !check.WaitUntilReady(ctx) {
+				errCh <- errors.WithStack(
+					errors.Errorf("Readiness check %s failed", check.String()))
+			} else {
+				envLog.Infof("Readiness check passed %s for %s", check, env.id)
+
+				rch <- struct{}{}
+			}
+		}(check)
+	}
+
+	done := 0
+
+	for done < total {
+		select {
+		case err := <-errCh:
+			return errors.WithStack(err)
+
+		case <-rch:
+			done++
+		}
+	}
+
+	envLog.Infof("Env %s is ready", env.id)
+
+	return nil
+}
+
+func (env *Env) interpolate(containers []*tpl.Container) error {
+	i := &interpolator{containers: containers}
 
 	for _, cont := range containers {
 		for _, file := range cont.ToInterpolate() {
@@ -251,7 +322,7 @@ func interpolate(containers []*tpl.Container) error {
 				return errors.Wrapf(err, "Error reading file %s", file)
 			}
 
-			res, err := i.interpolate(string(data))
+			res, err := lib.Interpolate(string(data), i)
 
 			if err != nil {
 				return errors.WithStack(err)
@@ -270,7 +341,7 @@ func interpolate(containers []*tpl.Container) error {
 	return nil
 }
 
-func buildAndFetch(env *Env, toBuild map[string]*tpl.BuildImage,
+func (env *Env) buildAndFetch(toBuild map[string]*tpl.BuildImage,
 	toFetch map[string]*tpl.FetchImage, ceng conteng.ContainerEngine,
 	pctx context.Context) (map[string][]uint16, error) {
 

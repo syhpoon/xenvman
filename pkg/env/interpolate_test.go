@@ -26,6 +26,8 @@ package env
 import (
 	"testing"
 
+	"github.com/syhpoon/xenvman/pkg/lib"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/syhpoon/xenvman/pkg/tpl"
@@ -51,7 +53,7 @@ address = "c1.0.tpl_2000"`
 
 	ip := &interpolator{containers: conts}
 
-	out, err := ip.interpolate(input)
+	out, err := lib.Interpolate(input, ip)
 
 	require.Nil(t, err)
 	require.Equal(t, out, res)
@@ -75,7 +77,7 @@ auth = "{{.Hostname}}:{{.GetLabel "auth-port"}}"
 
 	ip := &interpolator{containers: conts}
 
-	out, err := ip.interpolate(input)
+	out, err := lib.Interpolate(input, ip)
 
 	require.Nil(t, err)
 	require.Equal(t, out, res)

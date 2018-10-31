@@ -39,6 +39,10 @@ import (
 
 var tplLog = logger.GetLogger("xenvman.pkg.tpl.tpl")
 
+var readinessMap = map[string]func(map[string]interface{}) ReadinessCheck{
+	"http": readinessCheckHttpInit,
+}
+
 type Tpl struct {
 	envId string
 	name  string
@@ -53,6 +57,8 @@ type Tpl struct {
 	dataDir  string
 	wsDir    string
 	mountDir string
+
+	readinessChecks []ReadinessCheck
 
 	ctx context.Context
 	sync.RWMutex
@@ -131,10 +137,39 @@ func (tpl *Tpl) FetchImage(imgName string) *FetchImage {
 	return img
 }
 
+func (tpl *Tpl) GetName() string {
+	return tpl.name
+}
+
+func (tpl *Tpl) GetIdx() int {
+	return tpl.idx
+}
+
 func (tpl *Tpl) GetBuildImages() []*BuildImage {
 	return tpl.buildImages
 }
 
 func (tpl *Tpl) GetFetchImages() []*FetchImage {
 	return tpl.fetchImages
+}
+
+func (tpl *Tpl) GetReadinessChecks() []ReadinessCheck {
+	return tpl.readinessChecks
+}
+
+func (tpl *Tpl) AddReadinessCheck(name string,
+	params map[string]interface{}) {
+	checkCancelled(tpl.ctx)
+
+	initF, ok := readinessMap[name]
+
+	if !ok {
+		panic(errors.Errorf("Unknown readiness check type: %s", name))
+	}
+
+	check := initF(params)
+
+	tpl.readinessChecks = append(tpl.readinessChecks, check)
+
+	tplLog.Infof("[%s] Added readiness check: %s", tpl.envId, name)
 }

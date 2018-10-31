@@ -21,6 +21,10 @@ For a detailed example take a look at [tutorial](docs/tutorial.md).
 
 ## Compilation from source
 
+## Configuration
+
+## Running API server
+
 # Environments
 
 Environment is an isolated bubble where one or more containers can be run 
@@ -76,8 +80,8 @@ is the same template name as in main json file.
 Template javascript API provides functions to copy files from data dir to image
 workspace, mount them inside containers etc.
 
-Please note,that all files in data directory are never changed
-by a template directly, they are always copied when needed.
+Please note, that all files in data directory are never changed
+by a template, they are always copied when needed.
 
 ## Workspace directory
 
@@ -87,7 +91,7 @@ All those files are collected in a special temporary dir called
 `workspace`. A workspace is a temporary directory, separately created for 
 any image your template is trying to build during template execution.
 The only required file is a Dockerfile itself, which describes what kind of
-image you're trying to build.
+image you're building.
 
 ## Mount directory
 

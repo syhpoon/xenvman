@@ -21,53 +21,31 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
 */
-
-package env
+package lib
 
 import (
-	"github.com/syhpoon/xenvman/pkg/tpl"
+	"bufio"
+	"bytes"
+	"text/template"
+
+	"github.com/pkg/errors"
 )
 
-type interpolator struct {
-	containers []*tpl.Container
-}
+func Interpolate(input string, data interface{}) (string, error) {
+	t, err := template.New("").Parse(input)
 
-// Return a list of containers which have one of the provided labels set
-// A label is considered set when it has any non-empty label value
-func (ip *interpolator) EnvContainersWithLabels(labels ...string) []*tpl.Container {
-	var res []*tpl.Container
-
-	ls := map[string]bool{}
-
-	for _, l := range labels {
-		ls[l] = true
+	if err != nil {
+		return "", errors.Wrap(err, "Error parsing template")
 	}
 
-	for _, c := range ip.containers {
-		for label := range c.Labels() {
-			if ls[label] {
-				res = append(res, c)
-				break
-			}
-		}
+	var b bytes.Buffer
+	out := bufio.NewWriter(&b)
+
+	if err = t.Execute(out, data); err != nil {
+		return "", errors.Wrap(err, "Error executing template")
 	}
 
-	return res
-}
+	out.Flush()
 
-// Return a container possesing a given label.
-// Empty value matches any label value
-// If more than one containers match, one of them is returned in arbitrary order
-func (ip *interpolator) EnvContainerWithLabel(label, value string) *tpl.Container {
-	for _, c := range ip.containers {
-		for l, v := range c.Labels() {
-			if label == l {
-				if value == "" || value == v {
-					return c
-				}
-			}
-		}
-	}
-
-	return nil
+	return b.String(), nil
 }
