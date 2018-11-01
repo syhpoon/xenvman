@@ -1,6 +1,6 @@
 # Overview
 
-xenvman is an extensible environment manager which can be used to
+`xenvman` is an extensible environment manager which is used to
 create environments for testing microservices.
 
 ![Overview](docs/img/overview.png)
@@ -41,7 +41,7 @@ which defines what images to build/fetch, what and how many containers
 to spawn, what files to mount inside containers, what ports to expose etc.
 
 A template script is run by embedded JS interpreter inside `xenvman` server.
-One template is just one javascript file located withing a template base directory (defined by `tpl.base-dir` configuration parameter, or `XENVMAN_TPL.BASE_DIR` environment variable).
+One template is just one javascript file located within a template base directory (defined by `tpl.base-dir` configuration parameter, or `XENVMAN_TPL.BASE_DIR` environment variable).
 
 A template file name must follow the format: `<name>.tpl.js` and can be located
 either directly within tpl base dir or in any sub-directory.
@@ -126,6 +126,9 @@ to running JS in a browser or in node.js ecosystem:
 A template must define an entry point function:
 
 `function execute(tpl, params) {}`
+
+This function is expected to provide necessary instructions in order
+to configure an environment.
 
 First parameter, `tpl`, is a [template instance](#Template-API), while
 `params` is an arbitrary key-value object which is used to 
