@@ -109,9 +109,69 @@ and their relations.
 
 ## Javascript API
 
+As mentioned above, a template is a JavaScript program which
+uses special API to configure required environment.
+Let's take a closer look at template shape and form.
+
+`Please note`: `xenvman` uses an embedded [JS interpreter](https://github.com/robertkrimen/otto), which implies certain limitations as compared
+to running JS in a browser or in node.js ecosystem:
+
+* No DOM-related functions
+* `"use strict"` will parse, but does nothing
+* The regular expression engine (re2/regexp) is not fully compatible with the ECMA5 specification
+* Only ES5 is supported. ES6 features (eg: Typed Arrays) are not available
+
+### Template format
+
+A template must define an entry point function:
+
+`function execute(tpl, params) {}`
+
+First parameter, `tpl`, is a [template instance](#Template-API), while
+`params` is an arbitrary key-value object which is used to 
+configure template by the caller.
+
+`Please note`: calling tpl instance functions, such as `BuildImage`,
+`FetchImage` etc. does not cause these actions to occur immediately,
+instead they are scheduled and performed at later stages, after
+JS execution phase.
+
+### Template API
+
+Template instance, which is passed as a first argument has the following methods:
+
+#### BuildImage(name :: string) -> [BuildImage](#BuildImage-API)
+
+Instucts `xenvman` to build a new image with the given name.
+`name` parameter is the resulting Docker image name.
+
+Return value is a [BuildImage](#BuildImage-API) instance.
+
+#### FetchImage(name :: string) -> [FetchImage](#FetchImage-API)
+
+Instructs `xenvman` to fetch an existing image from public or 
+private image repository.
+ 
+The `name` is a fully-qualified docker image name, including
+repository address and tag, that is the same format is expected as
+for regular `docker pull` invocation.
+
+For private repos, existing credentials (acquired by `docker login`)
+are used by the user who started `xenvman` server.
+
+#### AddReadinessCheck(name :: string, params :: object) -> null
+
+Adds a new [readiness check](#Readiness-checks) for the current template.
+
+### BuildImage API
+### FetchImage API
+
+### Readiness checks
+
 ## Interpolation
 ### Workspace files
 ### Mounted files
+### Readiness checks
 
 # HTTP API
 
