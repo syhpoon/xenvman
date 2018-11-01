@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/syhpoon/xenvman.svg?branch=master)](https://travis-ci.org/syhpoon/xenvman)
+
 # Overview
 
 `xenvman` is an extensible environment manager which is used to
