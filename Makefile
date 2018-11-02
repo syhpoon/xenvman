@@ -19,9 +19,6 @@ test:
 vet:
 	@mk/go-tool.sh "go vet" Vetting
 
-deps:
-	git submodule update --init --recursive && rm -rf vendor/github.com/docker/docker/vendor/github.com/docker/go-connections
-
 prepare: fmt test vet
 
 build:

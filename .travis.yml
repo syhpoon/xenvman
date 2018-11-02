@@ -2,9 +2,5 @@ language: go
 go:
   - "1.11.x"
 
-before_install:
-  - make deps
-
 script:
   - make build
-
