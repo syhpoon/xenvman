@@ -125,3 +125,9 @@
 [submodule "vendor/github.com/docker/distribution"]
 	path = vendor/github.com/docker/distribution
 	url = https://github.com/docker/distribution
+[submodule "vendor/golang.org/x/sys"]
+	path = vendor/golang.org/x/sys
+	url = https://go.googlesource.com/sys
+[submodule "vendor/golang.org/x/text"]
+	path = vendor/golang.org/x/text
+	url = https://go.googlesource.com/text
