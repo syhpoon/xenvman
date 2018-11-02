@@ -22,7 +22,7 @@
  SOFTWARE.
 */
 
-package main
+package main // import "github.com/syhpoon/xenvman"
 
 func main() {
 	_ = RootCmd.Execute()
