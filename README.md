@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/syhpoon/xenvman.svg?branch=master)](https://travis-ci.org/syhpoon/xenvman)
+[![codecov](https://codecov.io/gh/syhpoon/xenvman/branch/master/graph/badge.svg)](https://codecov.io/gh/syhpoon/xenvman)
 
 # Overview
 
