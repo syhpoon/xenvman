@@ -170,9 +170,94 @@ are used by the user who started `xenvman` server.
 Adds a new [readiness check](#Readiness-checks) for the current template.
 
 ### BuildImage API
+
+BuildImage instance represents an image which `xenvman` is going to build
+on the fly. Files included in the image can be either copied from a
+[template data dir](#Data-directory) or by supplying data for files in
+template HTTP parameters.
+
+#### CopyDataToWorkspace(path :: string...) -> null
+
+This function takes a variable list of FS object names from data dir
+and copies them into [image workspace](#Workspace-directory).
+Object names must be relative to the data dir.
+For example, if data dir contained the following files:
+
+```
+<data-dir>/
+   subdir/
+      subfile.png
+   file1.json
+```
+
+then the paths would be: `subdir/subfile.png` and `file1.json`.
+
+A special value `*` can be provided in order to copy every object from
+data dir.
+
+#### AddFileToWorkspace(path :: string, data :: string, mode int) -> null
+
+Sometimes you want to dynamically include some file into the image
+which is different every time you build it. So it cannot be simply
+placed into data dir. Imagine you've patched some microservice
+and want to test it, you can simply include the binary itself
+(assuming your microservice is written in compiled language)
+in the HTTP request as a template parameter and by calling
+`AddFileToWorkspace` it will be copied to image workspace.
+
+* `path` argument is a path inside an image where to save the data.
+* `data` is the data itself as a binary/string. Usually it is base64-encoded
+  during HTTP transfer and then decoded back using `type.FromBase64()`
+  js function.
+* `mode` is a standard Unix file mode as an octal number.  
+
+#### InterpolateWorkspaceFile(file :: string, data :: object) -> null
+
+Instructs `xenvman` to interpolate a file in a workspace dir (that is
+it must already be copied there before).
+
+* `file` is a file path relative to workspace dir.
+* `data` is an object providing values for interpolation.
+
+[More details about interpolation](#Interpolation).
+
+#### NewContainer(name :: string) -> [Container](#Container-API)
+
+Create a new container with a given name from the image instance.
+
 ### FetchImage API
 
+FetchImage instance represents an image which will be fetched by
+`xenvman` (using Docker). Because in this case the image is already built
+the amount of possible actions is limited as compared to building a new
+image from scratch. Basically the only possible modification is mounting
+files into the container from the host ([Mount dir](#Mount-directory)).
+
+#### NewContainer(name :: string) -> [Container](#Container-API)
+
+Create a new container with a given name from the image instance.
+
+### Container API
+
+#### SetEnv(env, val :: string) -> null
+#### SetLabel(key :: string, value :: {string, number}) -> null
+#### SetCmd(cmd :: string) -> null
+#### SetPorts(port :: number...) -> null
+#### MountString(data, contFile :: string, mode :: int, opts :: object) -> null
+#### MountData(dataFile, contFile :: string, opts :: object) -> null
+#### MountData(dataFile, contFile :: string, opts :: object) -> null
+
 ### Readiness checks
+
+### Helper JS functions
+
+In addition to image and container specific APIs there are also some
+additional helper modules which can be used directly anywhere in the template
+script.
+
+#### fmt
+#### lib
+#### type
 
 ## Interpolation
 ### Workspace files
