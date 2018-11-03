@@ -1,4 +1,5 @@
-.PHONY: default
+.PHONY: fmt test vet deps build prepare default toc
+
 default:
 	@echo Commands:
 	@echo "make fmt - Format Go code"
@@ -7,8 +8,8 @@ default:
 	@echo "make deps" - Update vendor dependencies
 	@echo "make build" - Build xenvman
 
-
-.PHONY: fmt test vet deps build prepare
+toc:
+	@gh-md-toc README.md
 
 fmt:
 	@mk/go-tool.sh "go fmt" Formatting
