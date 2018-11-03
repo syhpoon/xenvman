@@ -16,6 +16,9 @@ fmt:
 test:
 	@mk/go-tool.sh "go test -vet off -cover" Testing
 
+cover:
+	@mk/cover.sh
+
 vet:
 	@mk/go-tool.sh "go vet" Vetting
 
