@@ -24,6 +24,22 @@ For a detailed example take a look at [tutorial](docs/tutorial.md).
 
 ## Compilation from source
 
+In order to compile `xenvman` from source one must have installed
+[Golang](https://golang.org/) with the minimum version of `1.11`.
+
+`xenvman` uses new feature introduced in Go version `1.11` - 
+[Modules](https://github.com/golang/go/wiki/Modules) and so you can
+clone the sources anywhere, no need to do it into `$GOPATH`.
+
+So the build process is super simple:
+```bash
+$ cd ~ && git clone https://github.com/syhpoon/xenvman.git && cd xenvman
+$ make test && make build
+```
+
+If everything is good, there will be a `xenvman` executable in the project root,
+which you can copy anywhere in your `$PATH` and that would be it.
+
 ## Configuration
 
 ## Running API server
@@ -201,7 +217,7 @@ Sometimes you want to dynamically include some file into the image
 which is different every time you build it. So it cannot be simply
 placed into data dir. Imagine you've patched some microservice
 and want to test it, you can simply include the binary itself
-(assuming your microservice is written in compiled language)
+(assuming your microservice is written in a compiled language)
 in the HTTP request as a template parameter and by calling
 `AddFileToWorkspace` it will be copied to image workspace.
 
@@ -244,7 +260,6 @@ Create a new container with a given name from the image instance.
 #### SetCmd(cmd :: string) -> null
 #### SetPorts(port :: number...) -> null
 #### MountString(data, contFile :: string, mode :: int, opts :: object) -> null
-#### MountData(dataFile, contFile :: string, opts :: object) -> null
 #### MountData(dataFile, contFile :: string, opts :: object) -> null
 
 ### Readiness checks
