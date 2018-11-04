@@ -33,10 +33,15 @@ import (
 	"github.com/robertkrimen/otto"
 )
 
-func libBase() map[string]interface{} {
+func libType() map[string]interface{} {
 	return map[string]interface{}{
-		"IsArray":   jsIsArray,
-		"IsDefined": jsIsDefined,
+		"EnsureString":        jsEnsureString,
+		"EnsureNumber":        jsEnsureNumber,
+		"EnsureListOfStrings": jsEnsureListOfStrings,
+		"EnsureListOfNumbers": jsEnsureListOfNumbers,
+		"FromBase64":          jsFromBase64,
+		"IsArray":             jsIsArray,
+		"IsDefined":           jsIsDefined,
 	}
 }
 
@@ -46,16 +51,6 @@ func jsIsArray(obj otto.Value) bool {
 
 func jsIsDefined(obj otto.Value) bool {
 	return !obj.IsUndefined() && !obj.IsNull()
-}
-
-func libType() map[string]interface{} {
-	return map[string]interface{}{
-		"EnsureString":        jsEnsureString,
-		"EnsureNumber":        jsEnsureNumber,
-		"EnsureListOfStrings": jsEnsureListOfStrings,
-		"EnsureListOfNumbers": jsEnsureListOfNumbers,
-		"FromBase64":          jsFromBase64,
-	}
 }
 
 func jsEnsureString(name string, obj otto.Value) {
@@ -171,6 +166,5 @@ func jsFromBase64(name, obj otto.Value) []byte {
 
 func setupLib(vm *otto.Otto) {
 	_ = vm.Set("fmt", fmt.Sprintf)
-	_ = vm.Set("lib", libBase())
 	_ = vm.Set("type", libType())
 }

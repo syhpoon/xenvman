@@ -358,13 +358,33 @@ Create a new container with a given name from the image instance.
 ### Container API
 
 #### SetEnv(env, val :: string) -> null
+
+Sets a shell environment variable inside a container.
+
 #### SetLabel(key :: string, value :: {string, number}) -> null
+
+This function sets a container label. Labels here are `xenvman` entity
+and are used later during [interpolation](#Interpolation) in order
+to filter containers.
+
 #### SetCmd(cmd :: string) -> null
+
+Sets a [`CMD`](https://docs.docker.com/engine/reference/builder/#cmd) for the container.
+
 #### SetPorts(port :: number...) -> null
+
+Instructs `xenvman` to expose certain ports from the container.
+Ports here are internal container ones, `xenvman` will select different
+external ports for every exposed one.
+
 #### MountString(data, contFile :: string, mode :: int, opts :: object) -> null
+TODO
+
 #### MountData(dataFile, contFile :: string, opts :: object) -> null
+TODO
 
 ### Readiness checks
+TODO
 
 ### Helper JS functions
 
@@ -372,16 +392,40 @@ In addition to image and container specific APIs there are also some
 additional helper modules which can be used directly anywhere in the template
 script.
 
-#### fmt
-#### lib
+#### fmt(format :: string, args :: any...)
+
+A useful shorthand for printing formatted messages.
+It's nothing more than an exported Golang function [`fmt.Printf`](https://golang.org/pkg/fmt/#Printf).
+
 #### type
 
+`type` module contains functions related to managing types.
+
+##### type.EnsureString()
+##### type.EnsureNumber()
+##### type.EnsureListOfStrings()
+##### type.EnsureListOfNumbers()
+##### type.FromBase64()
+##### type.IsArray()
+##### type.IsDefined()
+
 ## Interpolation
+TODO
+
 ### Workspace files
+TODO
+
 ### Mounted files
+TODO
+
 ### Readiness checks
+TODO
 
 # HTTP API
+TODO
 
 # Clients
+TODO
+
 ## Golang
+TODO
