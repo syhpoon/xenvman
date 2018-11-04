@@ -59,6 +59,10 @@ var apiRunCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx, cancel := context.WithCancel(context.Background())
 
+		fmt.Printf("%s\n", config.GetString("api.listen"))
+		fmt.Printf("%s\n", config.GetString("container-engine"))
+		return
+
 		// Start API server
 		apiParams := api.DefaultServerParams(ctx)
 

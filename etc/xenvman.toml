@@ -1,2 +1,19 @@
+# Port range for exposed containers
+ports-range = [20000, 30000]
+
+# Only `docker` is available at the moment
+container-engine = "docker"
+
+## API server-related parameters
 [api]
+# Address:port to listen on
 listen = ":9876"
+
+# This should be set to the address accessible from API clients
+export-address = "localhost"
+
+## Log settings
+[log]
+# For the format description take a look here:
+# https://github.com/juju/loggo#func-configureloggers
+config = "<root>=trace"

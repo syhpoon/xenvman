@@ -74,7 +74,7 @@ func InitConfig(path string) error {
 	}
 
 	viper.AutomaticEnv()
-	viper.SetEnvPrefix("XENV")
+	viper.SetEnvPrefix("XENVMAN")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	return nil

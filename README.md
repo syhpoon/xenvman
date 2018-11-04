@@ -9,6 +9,8 @@ Table of Contents
       * [Download release](#download-release)
       * [Compilation from source](#compilation-from-source)
       * [Configuration](#configuration)
+         * [Configuration file](#configuration-file)
+         * [Environment](#environment)
       * [Running API server](#running-api-server)
    * [Environments](#environments)
    * [Templates](#templates)
@@ -68,29 +70,79 @@ For a detailed example take a look at [tutorial](docs/tutorial.md).
 
 # Installation
 
+Please note, that even though `xenvman` binaries are provided for both
+Linux and MacOS, at the moment only Linux is officially supported.
+
 ## Download release
+
+Simply download the latest available binary for your OS/platform
+from [here](https://github.com/syhpoon/xenvman/releases),
+rename the binary to `xenvman` and place anywhere in your `$PATH`.
 
 ## Compilation from source
 
-In order to compile `xenvman` from source one must have installed
+In order to compile `xenvman` from source you must have installed
 [Golang](https://golang.org/) with the minimum version of `1.11`.
 
 `xenvman` uses new feature introduced in Go version `1.11` - 
 [Modules](https://github.com/golang/go/wiki/Modules) and so you can
 clone the sources anywhere, no need to do it into `$GOPATH`.
 
-So the build process is super simple:
+The build process is super simple:
 ```bash
 $ cd ~ && git clone https://github.com/syhpoon/xenvman.git && cd xenvman
 $ make test && make build
 ```
 
-If everything is good, there will be a `xenvman` executable in the project root,
-which you can copy anywhere in your `$PATH` and that would be it.
+If everything is good, there will be a `xenvman` executable in
+the project root, which you can copy anywhere in your `$PATH`
+and that would be it for the installation.
 
 ## Configuration
 
+There are two ways to provide configuration: configuration file or
+environment variables.
+
+### Configuration file
+
+`xenvman` uses [toml](https://github.com/toml-lang/toml) as a configuration
+format. Most of the configuration parameters have reasonable default
+values so you can run the program even without supplying any configuration
+at all. An example file with all the available options can
+be found [here](https://github.com/syhpoon/xenvman/blob/master/etc/xenvman.toml).
+
+In order to provide custom configuration, create a `xenvman.toml` file
+anywhere you like and run the server with `-c` option:
+
+`xenvman api run -c <path-to-xenvman.toml>`
+
+### Environment
+
+Configuration parameters can also be provided using environment variables.
+The variable must be a capitalized version of config param with a special
+`XENVMAN_` prefix.
+
+For example, setting API listen address port can be done using these both ways:
+
+```toml
+[api]
+listen = ":9876"
+``` 
+using configuration file, or
+
+`XENVMAN_API_LISTEN=":9876"` - using env.
+
+`Please note`: use underscore (`_`) to separate nested fields when using env,
+not dots.
+
+`Please note`: In order to use dashes (`-`) in a parameter name, use `env` command: `env 'XENVMAN_CONTAINER-ENGINE=docker' ./xenvman api run`
+
 ## Running API server
+
+Running `xenvman` server is very simple:
+
+1. When using configuration file: `xenvman api run -c <path-to-xenvman.toml>`
+2. When using env variables: `XENVMAN_<PARAM>=<VALUE> xenvman api run`
 
 # Environments
 
@@ -99,6 +151,8 @@ together in order to provide a necessary playground for infrastructure testing.
 
 Environments are created, managed and destroyed using HTTP API provided
 by running `xenvman` server.
+
+`Please note`: here environment has nothing to do with usual shell one.
 
 # Templates
 
