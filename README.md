@@ -145,6 +145,11 @@ TODO
 #### tpl.ws_dir (XENVMAN_TPL_WS_DIR) [""]
 TODO
 #### tpl.mount_dir (XENVMAN_TPL_WS_DIR) [""]
+TODO
+#### tls.cert (XENVMAN_TLS_CERT) [""]
+TODO
+#### tls.key (XENVMAN_TLS_key) [""]
+TODO
 
 ## Running API server
 

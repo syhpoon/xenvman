@@ -57,7 +57,7 @@ var runCmd = &cobra.Command{
 		// Start API server
 		params := server.DefaultParams(ctx)
 
-		cengCtx, centCancel := context.WithCancel(context.Background())
+		cengCtx, cengCancel := context.WithCancel(context.Background())
 
 		if contEng, err := buildContEng(); err != nil {
 			runLog.Errorf("Error building container engine: %s", err)
@@ -78,6 +78,8 @@ var runCmd = &cobra.Command{
 		params.BaseTplDir = config.GetString("tpl.base_dir")
 		params.BaseWsDir = config.GetString("tpl.ws_dir")
 		params.BaseMountDir = config.GetString("tpl.mount_dir")
+		params.TLSCertFile = config.GetString("tls.cert")
+		params.TLSKeyFile = config.GetString("tls.key")
 		params.CengCtx = cengCtx
 
 		// Ports
@@ -97,9 +99,11 @@ var runCmd = &cobra.Command{
 
 		wg.Add(1)
 
-		go srv.Run(wg)
+		errch := make(chan error)
 
-		wait(ctx, cancel, centCancel, wg)
+		go srv.Run(wg, errch)
+
+		wait(ctx, cancel, cengCancel, wg, errch)
 	},
 }
 
@@ -118,7 +122,8 @@ func buildContEng() (conteng.ContainerEngine, error) {
 	}
 }
 
-func wait(ctx context.Context, cancel, centCancel func(), wg *sync.WaitGroup) {
+func wait(ctx context.Context, cancel, cengCancel func(),
+	wg *sync.WaitGroup, errch <-chan error) {
 	c := make(chan os.Signal, 1)
 
 	signal.Notify(c, os.Interrupt)
@@ -136,6 +141,10 @@ LOOP:
 		select {
 		case <-ctx.Done():
 			break
+		case err := <-errch:
+			runLog.Errorf("Error running server: %+v", err)
+
+			break LOOP
 		case sig := <-c:
 			switch sig {
 			case os.Interrupt, syscall.SIGTERM, syscall.SIGABRT,
@@ -149,7 +158,7 @@ LOOP:
 	}
 
 	wg.Wait()
-	centCancel()
+	cengCancel()
 }
 
 func parsePorts() (*lib.PortRange, error) {

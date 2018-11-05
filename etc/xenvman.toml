@@ -19,6 +19,12 @@ ws_dir = "/opt/xenvman/ws"
 # Base directory
 mount_dir = "/opt/xenvman/mount"
 
+[tls]
+# Path to certificate file
+cert = ""
+# Path to key file
+key = ""
+
 ## Log settings
 [log]
 # For the format description take a look here:

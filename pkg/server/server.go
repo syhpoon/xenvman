@@ -30,6 +30,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -55,6 +57,8 @@ type Params struct {
 	BaseWsDir     string
 	BaseMountDir  string
 	ExportAddress string
+	TLSCertFile   string
+	TLSKeyFile    string
 	Ctx           context.Context
 	CengCtx       context.Context
 }
@@ -90,14 +94,17 @@ func New(params Params) *Server {
 	}
 }
 
-func (s *Server) Run(wg *sync.WaitGroup) {
+func (s *Server) Run(wg *sync.WaitGroup, errch chan<- error) {
 	// API endpoints
 	s.setupHandlers()
 
+	ctx, cancel := context.WithCancel(s.params.Ctx)
+	defer cancel()
+
 	// Shutdown http server upon global signal
 	go func() {
-		<-s.params.Ctx.Done()
-		_ = s.server.Shutdown(s.params.Ctx)
+		<-ctx.Done()
+		_ = s.server.Shutdown(ctx)
 
 		s.Lock()
 
@@ -106,15 +113,31 @@ func (s *Server) Run(wg *sync.WaitGroup) {
 		}
 
 		s.Unlock()
-
 		wg.Done()
 	}()
 
-	serverLog.Infof("Starting API server at %s",
-		s.params.Listener.Addr().String())
+	useTls := s.params.TLSCertFile != "" && s.params.TLSKeyFile != ""
 
-	if err := s.server.Serve(s.params.Listener); err != nil {
-		serverLog.Errorf("Error running server: %s", err)
+	mode := ""
+
+	if useTls {
+		mode = " [TLS]"
+	}
+
+	serverLog.Infof("Starting xenvman server%s at %s",
+		mode, s.params.Listener.Addr().String())
+
+	var err error
+
+	if useTls {
+		err = s.server.ServeTLS(s.params.Listener,
+			s.params.TLSCertFile, s.params.TLSKeyFile)
+	} else {
+		err = s.server.Serve(s.params.Listener)
+	}
+
+	if err != nil {
+		errch <- errors.WithStack(err)
 	}
 }
 
