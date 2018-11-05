@@ -77,6 +77,6 @@ func initLogger() {
 }
 
 func init() {
-	RootCmd.AddCommand(apiCmd)
+	RootCmd.AddCommand(runCmd)
 	RootCmd.AddCommand(versionCmd)
 }

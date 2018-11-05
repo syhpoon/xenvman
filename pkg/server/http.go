@@ -22,7 +22,7 @@
  SOFTWARE.
 */
 
-package api
+package server
 
 import (
 	"fmt"

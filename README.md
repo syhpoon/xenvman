@@ -114,7 +114,7 @@ be found [here](https://github.com/syhpoon/xenvman/blob/master/etc/xenvman.toml)
 In order to provide custom configuration, create a `xenvman.toml` file
 anywhere you like and run the server with `-c` option:
 
-`xenvman api run -c <path-to-xenvman.toml>`
+`xenvman run -c <path-to-xenvman.toml>`
 
 ### Environment
 
@@ -122,26 +122,35 @@ Configuration parameters can also be provided using environment variables.
 The variable must be a capitalized version of config param with a special
 `XENVMAN_` prefix.
 
-For example, setting API listen address port can be done using these both ways:
+For example, setting server listen address port can be done
+using these both ways:
 
-```toml
-[api]
-listen = ":9876"
-``` 
-using configuration file, or
+`listen = ":9876"` using configuration file, or
 
-`XENVMAN_API_LISTEN=":9876"` - using env.
+`XENVMAN_LISTEN=":9876"` - using env.
 
 `Please note`: use underscore (`_`) to separate nested fields when using env,
 not dots.
 
-`Please note`: In order to use dashes (`-`) in a parameter name, use `env` command: `env 'XENVMAN_CONTAINER-ENGINE=docker' ./xenvman api run`
+#### listen (XENVMAN_LISTEN) [":9876"]
+TODO
+#### export_address (XENVMAN_EXPORT_ADDRESS) ["localhost"]
+TODO
+#### ports_range (XENVMAN_PORTS_RANGE) [[20000, 30000]]
+TODO
+#### container_engine (XENVMAN_CONTAINER_ENGINE) ["docker"]
+TODO
+#### tpl.base_dir (XENVMAN_TPL_BASE_DIR) [""]
+TODO
+#### tpl.ws_dir (XENVMAN_TPL_WS_DIR) [""]
+TODO
+#### tpl.mount_dir (XENVMAN_TPL_WS_DIR) [""]
 
 ## Running API server
 
 Running `xenvman` server is very simple:
 
-1. When using configuration file: `xenvman api run -c <path-to-xenvman.toml>`
+1. When using configuration file: `xenvman run -c <path-to-xenvman.toml>`
 2. When using env variables: `XENVMAN_<PARAM>=<VALUE> xenvman api run`
 
 # Environments

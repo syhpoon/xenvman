@@ -22,7 +22,7 @@
  SOFTWARE.
 */
 
-package api
+package server
 
 import (
 	"context"
@@ -43,9 +43,9 @@ import (
 	"github.com/syhpoon/xenvman/pkg/logger"
 )
 
-var serverLog = logger.GetLogger("xenvman.pkg.api.server")
+var serverLog = logger.GetLogger("xenvman.pkg.server.server")
 
-type ServerParams struct {
+type Params struct {
 	Listener      net.Listener
 	WriteTimeout  time.Duration
 	ReadTimeout   time.Duration
@@ -59,8 +59,8 @@ type ServerParams struct {
 	CengCtx       context.Context
 }
 
-func DefaultServerParams(ctx context.Context) ServerParams {
-	return ServerParams{
+func DefaultParams(ctx context.Context) Params {
+	return Params{
 		WriteTimeout: 5 * time.Minute,
 		ReadTimeout:  5 * time.Minute,
 		Ctx:          ctx,
@@ -70,12 +70,12 @@ func DefaultServerParams(ctx context.Context) ServerParams {
 type Server struct {
 	router *mux.Router
 	server http.Server
-	params ServerParams
+	params Params
 	envs   map[string]*env.Env
 	sync.RWMutex
 }
 
-func NewServer(params ServerParams) *Server {
+func New(params Params) *Server {
 	router := mux.NewRouter()
 
 	return &Server{

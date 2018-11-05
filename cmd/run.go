@@ -36,88 +36,79 @@ import (
 	"os/signal"
 
 	"github.com/spf13/cobra"
-	"github.com/syhpoon/xenvman/pkg/api"
 	"github.com/syhpoon/xenvman/pkg/config"
 	"github.com/syhpoon/xenvman/pkg/conteng"
 	"github.com/syhpoon/xenvman/pkg/lib"
 	"github.com/syhpoon/xenvman/pkg/logger"
+	"github.com/syhpoon/xenvman/pkg/server"
 )
 
-var apiLog = logger.GetLogger("xenvman.cmd.api")
+var runLog = logger.GetLogger("xenvman.cmd.run")
 
-var apiCmd = &cobra.Command{
-	Use:   "api",
-	Short: "API server",
-}
-
-var apiRunCmd = &cobra.Command{
+var runCmd = &cobra.Command{
 	Use:   "run",
-	Short: "Run API server",
+	Short: "Run xenvman server",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		_ = config.BindPFlag("api.listen", cmd.Flag("listen"))
+		_ = config.BindPFlag("listen", cmd.Flag("listen"))
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx, cancel := context.WithCancel(context.Background())
 
-		fmt.Printf("%s\n", config.GetString("api.listen"))
-		fmt.Printf("%s\n", config.GetString("container-engine"))
-		return
-
 		// Start API server
-		apiParams := api.DefaultServerParams(ctx)
+		params := server.DefaultParams(ctx)
 
 		cengCtx, centCancel := context.WithCancel(context.Background())
 
 		if contEng, err := buildContEng(); err != nil {
-			apiLog.Errorf("Error building container engine: %s", err)
+			runLog.Errorf("Error building container engine: %s", err)
 		} else {
-			apiParams.ContEng = contEng
+			params.ContEng = contEng
 		}
 
-		listener, err := net.Listen("tcp", config.GetString("api.listen"))
+		listener, err := net.Listen("tcp", config.GetString("listen"))
 
 		if err != nil {
-			apiLog.Errorf("Unable to start listener: %s", err)
+			runLog.Errorf("Unable to start listener: %s", err)
 
 			os.Exit(1)
 		}
 
-		apiParams.Listener = listener
-		apiParams.ExportAddress = config.GetString("api.export-address")
-		apiParams.BaseTplDir = config.GetString("tpl.base-dir")
-		apiParams.BaseWsDir = config.GetString("tpl.ws-dir")
-		apiParams.BaseMountDir = config.GetString("tpl.mount-dir")
-		apiParams.CengCtx = cengCtx
+		params.Listener = listener
+		params.ExportAddress = config.GetString("export_address")
+		params.BaseTplDir = config.GetString("tpl.base_dir")
+		params.BaseWsDir = config.GetString("tpl.ws_dir")
+		params.BaseMountDir = config.GetString("tpl.mount_dir")
+		params.CengCtx = cengCtx
 
 		// Ports
 		prange, err := parsePorts()
 
 		if err != nil {
-			apiLog.Errorf("Error parsing ports: %s", err)
+			runLog.Errorf("Error parsing ports: %s", err)
 
 			os.Exit(1)
 		} else {
-			apiParams.PortRange = prange
+			params.PortRange = prange
 		}
 
-		apiServer := api.NewServer(apiParams)
+		srv := server.New(params)
 
 		wg := &sync.WaitGroup{}
 
 		wg.Add(1)
 
-		go apiServer.Run(wg)
+		go srv.Run(wg)
 
 		wait(ctx, cancel, centCancel, wg)
 	},
 }
 
 func buildContEng() (conteng.ContainerEngine, error) {
-	ceng := config.GetString("container-engine")
+	ceng := config.GetString("container_engine")
 
 	switch ceng {
 	case "docker":
-		apiLog.Infof("Using Docker container engine")
+		runLog.Infof("Using Docker container engine")
 
 		params := conteng.DockerEngineParams{}
 
@@ -162,7 +153,7 @@ LOOP:
 }
 
 func parsePorts() (*lib.PortRange, error) {
-	ports := config.GetStrings("ports-range")
+	ports := config.GetStrings("ports_range")
 
 	if len(ports) != 2 {
 		return nil, fmt.Errorf("Expected two ports for a range, got %d", len(ports))
@@ -188,7 +179,5 @@ func parsePorts() (*lib.PortRange, error) {
 }
 
 func init() {
-	apiCmd.AddCommand(apiRunCmd)
-
-	apiRunCmd.Flags().StringP("listen", "l", ":9876", "Listen address")
+	runCmd.Flags().StringP("listen", "l", ":9876", "Listen address")
 }

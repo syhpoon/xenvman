@@ -25,12 +25,10 @@
 package config
 
 var defaultConfig = []byte(`
-ports-range = [20000, 30000]
-container-engine = "docker"
-
-[api]
 listen = ":9876"
-export-address = "localhost"
+export_address = "localhost"
+ports_range = [20000, 30000]
+container_engine = "docker"
 
 [log]
 config = "<root>=trace"
