@@ -147,31 +147,53 @@ using these both ways:
 `Please note`: use underscore (`_`) to separate nested fields when using env,
 not dots.
 
-#### listen (XENVMAN_LISTEN) [":9876"]
-TODO
-#### export_address (XENVMAN_EXPORT_ADDRESS) ["localhost"]
-TODO
-#### ports_range (XENVMAN_PORTS_RANGE) [[20000, 30000]]
-TODO
-#### container_engine (XENVMAN_CONTAINER_ENGINE) ["docker"]
-TODO
-#### tpl.base_dir (XENVMAN_TPL_BASE_DIR) [""]
-TODO
-#### tpl.ws_dir (XENVMAN_TPL_WS_DIR) [""]
-TODO
-#### tpl.mount_dir (XENVMAN_TPL_WS_DIR) [""]
-TODO
-#### tls.cert (XENVMAN_TLS_CERT) [""]
-TODO
-#### tls.key (XENVMAN_TLS_key) [""]
-TODO
+### listen (XENVMAN_LISTEN) [":9876"]
+
+IP:port to listen on.
+If `IP` is ommitted, `localhost` will be used.
+
+### export_address (XENVMAN_EXPORT_ADDRESS) ["localhost"]
+
+The external address to expose to clients.
+
+### ports_range (XENVMAN_PORTS_RANGE) [[20000, 30000]]
+
+A port range from which to take exposed ports,
+specified as a list of two [min, max] numbers.
+
+### container_engine (XENVMAN_CONTAINER_ENGINE) ["docker"]
+
+Type of container engine to use.
+Currently only `docker` is supported.
+
+### tpl.base_dir (XENVMAN_TPL_BASE_DIR) [""]
+
+Base directory where to search for [templates](#Templates).
+
+### tpl.ws_dir (XENVMAN_TPL_WS_DIR) [""]
+
+Base directory where temporary image [workspaces](#Workspace-directory)
+will be created.
+
+### tpl.mount_dir (XENVMAN_TPL_MOUNT_DIR) [""]
+
+Base directory where temporary container [mount dirs](#Mount-directory)
+will be created.
+
+### tls.cert (XENVMAN_TLS_CERT) [""]
+
+Path to TLS certificate file. If not set, TLS mode will not be used.
+
+### tls.key (XENVMAN_TLS_key) [""]
+
+Path to TLS privatet key file. If not set, TLS mode will not be used.
 
 ## Running API server
 
 Running `xenvman` server is very simple:
 
 1. When using configuration file: `xenvman run -c <path-to-xenvman.toml>`
-2. When using env variables: `XENVMAN_<PARAM>=<VALUE> xenvman api run`
+2. When using env variables: `XENVMAN_<PARAM>=<VALUE> xenvman run`
 
 # Environments
 
@@ -181,7 +203,7 @@ together in order to provide a necessary playground for infrastructure testing.
 Environments are created, managed and destroyed using HTTP API provided
 by running `xenvman` server.
 
-`Please note`: here environment has nothing to do with usual shell one.
+`Please note`: here environment is `NOT` the usual shell one.
 
 # Templates
 
@@ -407,13 +429,66 @@ Ports here are internal container ones, `xenvman` will select different
 external ports for every exposed one.
 
 #### MountString(data, contFile :: string, mode :: int, opts :: object) -> null
-TODO
+
+Instructs `xenvman` to mount the `data` string into a container
+under the `contFile` name.
+`mode` is a regular Linux file mode expressed as an octal int.
+`opts` is an object, representing additional mounting parameters:
+
+* `readonly` :: bool - If mounted file should be read only.
+* `interpolate` :: bool - If the contents of a mounted file needs to be
+                          interpolated.
 
 #### MountData(dataFile, contFile :: string, opts :: object) -> null
-TODO
+
+Instructs `xenvman` to copy a `dataFile` from the [data dir](#Data directory) 
+and mount it inside a container under `contFile` name.
+
+In addition to `opts` from `MountString` above, `MountData` can take the
+following:
+
+* `skip-if-nonexistent` :: bool - If set to `true`, an error will not be
+                                  raised if specified `dataFile` does not exist.
 
 ### Readiness checks
-TODO
+
+`xenvman` was primarily designed to create environments for
+infrastructure testing. Because of that, it needs to make sure
+an environment is `ready` before returning the access data to the caller.
+This is what readiness checks are for.
+
+An environment can define any number of readiness checks and
+`xenvman` will only return back to the caller after all the checks for
+all the used templates are completed.
+
+Readiness checks are defined by calling `AddReadinessCheck()` function
+on `tpl` instance.
+
+Please note, that every value in check parameters is
+[interpolated](#Readiness-checks-interpolation).
+
+Currently available readiness checks include:
+
+#### http
+
+As the name suggests this readiness check is used to ensure
+readiness of a http service[s].
+
+Availalable parameters include:
+
+* `url` :: string - A HTTP URL to try fetching.
+* `codes` :: [int] - A list of successful HTTP response codes.
+                     At lest one must match in order for a check to
+                     be considered successful.
+* `headers` :: [object] - A list of header objects to match.
+	                      Values within the same objects are matched
+	                      in a conjuctive way (AND)
+	                      Values from different objects are matched in
+	                      a disjunctive way (OR)
+* `body` :: string - A regexp to match response body against.
+* `retry_limit` :: int - How many times to retry a check before giving up.
+* `retry_interval` :: string - How long to wait between retrying.
+                               String must follow Golang [fmt.Duration](https://golang.org/pkg/time/#ParseDuration) format.
 
 ### Helper JS functions
 
@@ -441,13 +516,13 @@ It's nothing more than an exported Golang function [`fmt.Printf`](https://golang
 ## Interpolation
 TODO
 
-### Workspace files
+### Workspace files interpolation
 TODO
 
-### Mounted files
+### Mounted files interpolation
 TODO
 
-### Readiness checks
+### Readiness checks interpolation
 TODO
 
 # HTTP API
