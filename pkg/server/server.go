@@ -30,18 +30,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
+	"github.com/syhpoon/xenvman/pkg/conteng"
 	"github.com/syhpoon/xenvman/pkg/def"
 	"github.com/syhpoon/xenvman/pkg/env"
 	"github.com/syhpoon/xenvman/pkg/lib"
-
-	"github.com/syhpoon/xenvman/pkg/conteng"
 	"github.com/syhpoon/xenvman/pkg/logger"
 )
 

@@ -3,6 +3,7 @@
 
 Table of Contents
 =================
+
    * [Table of Contents](#table-of-contents)
    * [Overview](#overview)
    * [Installation](#installation)
@@ -11,15 +12,15 @@ Table of Contents
       * [Configuration](#configuration)
          * [Configuration file](#configuration-file)
          * [Environment](#environment)
-            * [listen (XENVMAN_LISTEN) [":9876"]](#listen-xenvman_listen-9876)
-            * [export_address (XENVMAN_EXPORT_ADDRESS) ["localhost"]](#export_address-xenvman_export_address-localhost)
-            * [ports_range (XENVMAN_PORTS_RANGE) [[20000, 30000]]](#ports_range-xenvman_ports_range-20000-30000)
-            * [container_engine (XENVMAN_CONTAINER_ENGINE) ["docker"]](#container_engine-xenvman_container_engine-docker)
-            * [tpl.base_dir (XENVMAN_TPL_BASE_DIR) [""]](#tplbase_dir-xenvman_tpl_base_dir-)
-            * [tpl.ws_dir (XENVMAN_TPL_WS_DIR) [""]](#tplws_dir-xenvman_tpl_ws_dir-)
-            * [tpl.mount_dir (XENVMAN_TPL_WS_DIR) [""]](#tplmount_dir-xenvman_tpl_ws_dir-)
-            * [tls.cert (XENVMAN_TLS_CERT) [""]](#tlscert-xenvman_tls_cert-)
-            * [tls.key (XENVMAN_TLS_key) [""]](#tlskey-xenvman_tls_key-)
+         * [listen (XENVMAN_LISTEN) [":9876"]](#listen-xenvman_listen-9876)
+         * [export_address (XENVMAN_EXPORT_ADDRESS) ["localhost"]](#export_address-xenvman_export_address-localhost)
+         * [ports_range (XENVMAN_PORTS_RANGE) [[20000, 30000]]](#ports_range-xenvman_ports_range-20000-30000)
+         * [container_engine (XENVMAN_CONTAINER_ENGINE) ["docker"]](#container_engine-xenvman_container_engine-docker)
+         * [tpl.base_dir (XENVMAN_TPL_BASE_DIR) [""]](#tplbase_dir-xenvman_tpl_base_dir-)
+         * [tpl.ws_dir (XENVMAN_TPL_WS_DIR) [""]](#tplws_dir-xenvman_tpl_ws_dir-)
+         * [tpl.mount_dir (XENVMAN_TPL_MOUNT_DIR) [""]](#tplmount_dir-xenvman_tpl_mount_dir-)
+         * [tls.cert (XENVMAN_TLS_CERT) [""]](#tlscert-xenvman_tls_cert-)
+         * [tls.key (XENVMAN_TLS_key) [""]](#tlskey-xenvman_tls_key-)
       * [Running API server](#running-api-server)
    * [Environments](#environments)
    * [Templates](#templates)
@@ -48,6 +49,7 @@ Table of Contents
             * [MountString(data, contFile :: string, mode :: int, opts :: object) -&gt; null](#mountstringdata-contfile--string-mode--int-opts--object---null)
             * [MountData(dataFile, contFile :: string, opts :: object) -&gt; null](#mountdatadatafile-contfile--string-opts--object---null)
          * [Readiness checks](#readiness-checks)
+            * [http](#http)
          * [Helper JS functions](#helper-js-functions)
             * [fmt(format :: string, args :: any...)](#fmtformat--string-args--any)
             * [type](#type)
@@ -59,13 +61,13 @@ Table of Contents
                * [type.IsArray()](#typeisarray)
                * [type.IsDefined()](#typeisdefined)
       * [Interpolation](#interpolation)
-         * [Workspace files](#workspace-files)
-         * [Mounted files](#mounted-files)
-         * [Readiness checks](#readiness-checks-1)
+         * [Workspace files interpolation](#workspace-files-interpolation)
+         * [Mounted files interpolation](#mounted-files-interpolation)
+         * [Readiness checks interpolation](#readiness-checks-interpolation)
    * [HTTP API](#http-api)
    * [Clients](#clients)
       * [Golang](#golang)
-
+      
 # Overview
 
 `xenvman` is an extensible environment manager which is used to
@@ -461,8 +463,8 @@ An environment can define any number of readiness checks and
 `xenvman` will only return back to the caller after all the checks for
 all the used templates are completed.
 
-Readiness checks are defined by calling `AddReadinessCheck()` function
-on `tpl` instance.
+Readiness checks are defined by calling [AddReadinessCheck()](#addreadinesscheckname--string-params--object---null)
+function on `tpl` instance.
 
 Please note, that every value in check parameters is
 [interpolated](#Readiness-checks-interpolation).
@@ -488,7 +490,7 @@ Availalable parameters include:
 * `body` :: string - A regexp to match response body against.
 * `retry_limit` :: int - How many times to retry a check before giving up.
 * `retry_interval` :: string - How long to wait between retrying.
-                               String must follow Golang [fmt.Duration](https://golang.org/pkg/time/#ParseDuration) format.
+                               String must follow Golang [`fmt.Duration`](https://golang.org/pkg/time/#ParseDuration) format.
 
 ### Helper JS functions
 
