@@ -33,6 +33,8 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/pkg/errors"
+
 	"os/signal"
 
 	"github.com/spf13/cobra"
@@ -91,6 +93,19 @@ var runCmd = &cobra.Command{
 			os.Exit(1)
 		} else {
 			params.PortRange = prange
+		}
+
+		// Auth backend
+		authb, err := parseAuthBackend()
+
+		if err != nil {
+			runLog.Errorf("Error parsing auth backend: %+v", err)
+
+			os.Exit(1)
+		} else {
+			runLog.Infof("Using auth backend: %s", authb.String())
+
+			params.AuthBackend = authb
 		}
 
 		srv := server.New(params)
@@ -159,6 +174,29 @@ LOOP:
 
 	wg.Wait()
 	cengCancel()
+}
+
+func parseAuthBackend() (server.AuthBackend, error) {
+	b := config.GetString("api_auth")
+
+	switch b {
+	case "":
+		return nil, nil
+	case "basic":
+		return parseAuthBackendBasic()
+	default:
+		return nil, errors.Errorf("Unknown auth backend type: %s", b)
+	}
+}
+
+func parseAuthBackendBasic() (server.AuthBackend, error) {
+	creds := config.GetStringMapString("auth_basic")
+
+	if len(creds) == 0 {
+		return nil, nil
+	}
+
+	return &server.AuthBackendBasic{Credentials: creds}, nil
 }
 
 func parsePorts() (*lib.PortRange, error) {

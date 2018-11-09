@@ -4,7 +4,6 @@
 Table of Contents
 =================
 
-   * [Table of Contents](#table-of-contents)
    * [Overview](#overview)
    * [Installation](#installation)
       * [Download release](#download-release)
@@ -12,10 +11,12 @@ Table of Contents
       * [Configuration](#configuration)
          * [Configuration file](#configuration-file)
          * [Environment](#environment)
-         * [listen (XENVMAN_LISTEN) [":9876"]](#listen-xenvman_listen-9876)
-         * [export_address (XENVMAN_EXPORT_ADDRESS) ["localhost"]](#export_address-xenvman_export_address-localhost)
-         * [ports_range (XENVMAN_PORTS_RANGE) [[20000, 30000]]](#ports_range-xenvman_ports_range-20000-30000)
+         * [api_auth (XENVMAN_API_AUTH) [""]](#api_auth-xenvman_api_auth-)
+         * [auth_basic [""]](#auth_basic-)
          * [container_engine (XENVMAN_CONTAINER_ENGINE) ["docker"]](#container_engine-xenvman_container_engine-docker)
+         * [export_address (XENVMAN_EXPORT_ADDRESS) ["localhost"]](#export_address-xenvman_export_address-localhost)
+         * [listen (XENVMAN_LISTEN) [":9876"]](#listen-xenvman_listen-9876)
+         * [ports_range (XENVMAN_PORTS_RANGE) [[20000, 30000]]](#ports_range-xenvman_ports_range-20000-30000)
          * [tpl.base_dir (XENVMAN_TPL_BASE_DIR) [""]](#tplbase_dir-xenvman_tpl_base_dir-)
          * [tpl.ws_dir (XENVMAN_TPL_WS_DIR) [""]](#tplws_dir-xenvman_tpl_ws_dir-)
          * [tpl.mount_dir (XENVMAN_TPL_MOUNT_DIR) [""]](#tplmount_dir-xenvman_tpl_mount_dir-)
@@ -149,24 +150,35 @@ using these both ways:
 `Please note`: use underscore (`_`) to separate nested fields when using env,
 not dots.
 
-### listen (XENVMAN_LISTEN) [":9876"]
+### api_auth (XENVMAN_API_AUTH) [""]
 
-IP:port to listen on.
-If `IP` is ommitted, `localhost` will be used.
+Type of authentication backend to use.
+Available types include:
 
-### export_address (XENVMAN_EXPORT_ADDRESS) ["localhost"]
+* `basic` - HTTP basic auth
 
-The external address to expose to clients.
+### auth_basic [""]
 
-### ports_range (XENVMAN_PORTS_RANGE) [[20000, 30000]]
-
-A port range from which to take exposed ports,
-specified as a list of two [min, max] numbers.
+Section specifying mapping from username to password for http basic auth.
 
 ### container_engine (XENVMAN_CONTAINER_ENGINE) ["docker"]
 
 Type of container engine to use.
 Currently only `docker` is supported.
+
+### export_address (XENVMAN_EXPORT_ADDRESS) ["localhost"]
+
+The external address to expose to clients.
+
+### listen (XENVMAN_LISTEN) [":9876"]
+
+IP:port to listen on.
+If `IP` is ommitted, `localhost` will be used.
+
+### ports_range (XENVMAN_PORTS_RANGE) [[20000, 30000]]
+
+A port range from which to take exposed ports,
+specified as a list of two [min, max] numbers.
 
 ### tpl.base_dir (XENVMAN_TPL_BASE_DIR) [""]
 
@@ -463,8 +475,8 @@ An environment can define any number of readiness checks and
 `xenvman` will only return back to the caller after all the checks for
 all the used templates are completed.
 
-Readiness checks are defined by calling [AddReadinessCheck()](#addreadinesscheckname--string-params--object---null)
-function on `tpl` instance.
+Readiness checks are added by calling [AddReadinessCheck()](#addreadinesscheckname--string-params--object---null)
+function of `tpl` instance.
 
 Please note, that every value in check parameters is
 [interpolated](#Readiness-checks-interpolation).
@@ -484,9 +496,9 @@ Availalable parameters include:
                      be considered successful.
 * `headers` :: [object] - A list of header objects to match.
 	                      Values within the same objects are matched
-	                      in a conjuctive way (AND)
+	                      in a conjuctive way (AND).
 	                      Values from different objects are matched in
-	                      a disjunctive way (OR)
+	                      a disjunctive way (OR).
 * `body` :: string - A regexp to match response body against.
 * `retry_limit` :: int - How many times to retry a check before giving up.
 * `retry_interval` :: string - How long to wait between retrying.

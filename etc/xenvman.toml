@@ -10,6 +10,9 @@ ports_range = [20000, 30000]
 # Only `docker` is available at the moment
 container_engine = "docker"
 
+# Auth backend
+# api_auth = "basic"
+
 # Template settings
 [tpl]
 # Base dir where all template files will be located
@@ -24,6 +27,10 @@ mount_dir = "/opt/xenvman/mount"
 cert = ""
 # Path to key file
 key = ""
+
+#[auth_basic]
+#user1 = "pass1"
+#user2 = "pass2"
 
 ## Log settings
 [log]

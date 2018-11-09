@@ -57,6 +57,7 @@ type Params struct {
 	ExportAddress string
 	TLSCertFile   string
 	TLSKeyFile    string
+	AuthBackend   AuthBackend
 	Ctx           context.Context
 	CengCtx       context.Context
 }
@@ -79,6 +80,10 @@ type Server struct {
 
 func New(params Params) *Server {
 	router := mux.NewRouter()
+
+	if params.AuthBackend != nil {
+
+	}
 
 	return &Server{
 		router: router,
@@ -140,17 +145,25 @@ func (s *Server) Run(wg *sync.WaitGroup, errch chan<- error) {
 }
 
 func (s *Server) setupHandlers() {
+	hf := func(h http.HandlerFunc) http.HandlerFunc {
+		if s.params.AuthBackend != nil {
+			return apiAuthMiddleware(h, s.params.AuthBackend)
+		} else {
+			return h
+		}
+	}
+
 	// POST /api/v1/env - Create a new environment
-	s.router.HandleFunc("/api/v1/env", s.createEnvHandler).
+	s.router.HandleFunc("/api/v1/env", hf(s.createEnvHandler)).
 		Methods(http.MethodPost)
 
 	// DELETE /api/v1/env/{id} - Delete an environment
-	s.router.HandleFunc("/api/v1/env/{id}", s.deleteEnvHandler).
+	s.router.HandleFunc("/api/v1/env/{id}", hf(s.deleteEnvHandler)).
 		Methods(http.MethodDelete)
 
 	// POST /api/v1/env/{id}/keepalive - Keep alive an environment
-	s.router.HandleFunc("/api/v1/env/{id}/keepalive", s.keepaliveEnvHandler).
-		Methods(http.MethodPost)
+	s.router.HandleFunc("/api/v1/env/{id}/keepalive",
+		hf(s.keepaliveEnvHandler)).Methods(http.MethodPost)
 
 	//TODO: API doc
 	//s.router.HandleFunc("/apidoc", s.handleRoot)

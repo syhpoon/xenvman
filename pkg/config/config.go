@@ -116,6 +116,10 @@ func GetUint(key string) uint {
 	return uint(ui64)
 }
 
+func GetStringMapString(key string) map[string]string {
+	return viper.GetStringMapString(key)
+}
+
 func Get(key string) interface{} {
 	return viper.Get(key)
 }
@@ -126,8 +130,4 @@ func IsSet(key string) bool {
 
 func BindPFlag(key string, flag *pflag.Flag) error {
 	return viper.BindPFlag(key, flag)
-}
-
-func AllSettings() map[string]interface{} {
-	return viper.AllSettings()
 }

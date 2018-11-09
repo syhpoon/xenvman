@@ -27,6 +27,7 @@ package server
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"encoding/json"
 	"io/ioutil"
@@ -65,6 +66,8 @@ func ApiSendReply(w http.ResponseWriter, code int, resp *apiResponse) {
 func SendHttpResponse(w http.ResponseWriter, code int,
 	headers interface{}, body interface{}) error {
 
+	foundContentType := false
+
 	if headers != nil {
 		switch h := headers.(type) {
 		case map[string]string:
@@ -77,6 +80,10 @@ func SendHttpResponse(w http.ResponseWriter, code int,
 				for _, value := range v {
 					w.Header().Add(k, value)
 				}
+
+				if strings.ToLower(k) == "content-type" {
+					foundContentType = true
+				}
 			}
 		default:
 			err := fmt.Errorf(
@@ -86,6 +93,10 @@ func SendHttpResponse(w http.ResponseWriter, code int,
 
 			return err
 		}
+	}
+
+	if !foundContentType {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	}
 
 	w.WriteHeader(code)
