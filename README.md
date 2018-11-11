@@ -159,7 +159,7 @@ Available types include:
 
 ### auth_basic [""]
 
-Section specifying mapping from username to password for http basic auth.
+Section specifying mapping from usernames to passwords for http basic auth.
 
 ### container_engine (XENVMAN_CONTAINER_ENGINE) ["docker"]
 

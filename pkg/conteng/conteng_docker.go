@@ -66,7 +66,7 @@ type DockerEngine struct {
 }
 
 func NewDockerEngine(params DockerEngineParams) (*DockerEngine, error) {
-	cli, err := client.NewClientWithOpts(client.WithVersion("1.37"))
+	cli, err := client.NewClientWithOpts()
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "Error creating docker client")
