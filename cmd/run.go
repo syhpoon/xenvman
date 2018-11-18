@@ -103,7 +103,11 @@ var runCmd = &cobra.Command{
 
 			os.Exit(1)
 		} else {
-			runLog.Infof("Using auth backend: %s", authb.String())
+			if authb == nil {
+				runLog.Infof("Not using any auth backend")
+			} else {
+				runLog.Infof("Using auth backend: %s", authb.String())
+			}
 
 			params.AuthBackend = authb
 		}
