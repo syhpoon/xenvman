@@ -30,6 +30,11 @@ export_address = "localhost"
 ports_range = [20000, 30000]
 container_engine = "docker"
 
+[tpl]
+base_dir = "."
+ws_dir = "/tmp/xenvman/ws"
+mount_dir = "/tmp/xenvman/mount"
+
 [log]
 config = "<root>=trace"
 `)

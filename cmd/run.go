@@ -84,6 +84,13 @@ var runCmd = &cobra.Command{
 		params.TLSKeyFile = config.GetString("tls.key")
 		params.CengCtx = cengCtx
 
+		if err := makeDirs([]string{
+			params.BaseTplDir,
+			params.BaseWsDir,
+			params.BaseMountDir}); err != nil {
+			os.Exit(1)
+		}
+
 		// Ports
 		prange, err := parsePorts()
 
@@ -227,6 +234,18 @@ func parsePorts() (*lib.PortRange, error) {
 	}
 
 	return lib.NewPortRange(uint16(pMin), uint16(pMax)), nil
+}
+
+func makeDirs(dirs []string) error {
+	for _, dir := range dirs {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			runLog.Errorf("Error making dir %s: %s", dir, err)
+
+			return err
+		}
+	}
+
+	return nil
 }
 
 func init() {

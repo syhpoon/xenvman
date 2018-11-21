@@ -6,7 +6,7 @@ set -e
 tool=$1
 msg=$2
 
-dirs=$(find . -maxdepth 1 -type d -and -not -path '*/\.*' | grep -Ev 'vendor|etc|tmp|docs|mk' | grep -v "^.$")
+dirs=$(find . -maxdepth 1 -type d -and -not -path '*/\.*' | grep -Ev 'vendor|etc|tmp|docs|mk|example-templates' | grep -v "^.$")
 
 for dir in ${dirs}; do
    echo "*** ${msg} ${dir}";

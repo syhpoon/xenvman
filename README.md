@@ -212,7 +212,7 @@ Running `xenvman` server is very simple:
 # Environments
 
 Environment is an isolated bubble where one or more containers can be run 
-together in order to provide a necessary playground for infrastructure testing.
+together in order to provide a necessary playground for integration testing.
 
 Environments are created, managed and destroyed using HTTP API provided
 by running `xenvman` server.
@@ -467,7 +467,7 @@ following:
 ### Readiness checks
 
 `xenvman` was primarily designed to create environments for
-infrastructure testing. Because of that, it needs to make sure
+integration testing. Because of that, it needs to make sure
 an environment is `ready` before returning the access data to the caller.
 This is what readiness checks are for.
 
