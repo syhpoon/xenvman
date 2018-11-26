@@ -185,7 +185,6 @@ func (cont *Container) MountData(dataFile, contFile string, opts Opts) {
 }
 
 func (cont *Container) doMount(hostFile, contFile string, opts Opts) {
-
 	contLog.Debugf("[%s] Mounting %s to %s [opts=%+v]",
 		cont.envId, hostFile, contFile, opts)
 

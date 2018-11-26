@@ -66,7 +66,15 @@ type DockerEngine struct {
 }
 
 func NewDockerEngine(params DockerEngineParams) (*DockerEngine, error) {
-	cli, err := client.NewClientWithOpts()
+	var opts []func(client2 *client.Client) error
+
+	if apiVersion := os.Getenv("DOCKER_API_VERSION"); apiVersion != "" {
+		dockerLog.Infof("Using API version: %s", apiVersion)
+
+		opts = append(opts, client.WithVersion(apiVersion))
+	}
+
+	cli, err := client.NewClientWithOpts(opts...)
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "Error creating docker client")
@@ -226,14 +234,19 @@ func (de *DockerEngine) BuildImage(ctx context.Context, imgName string,
 	}
 
 	r, err := de.cl.ImageBuild(ctx, buildContext, opts)
-	defer r.Body.Close()
 
-	// Check server response
-	if rerr := de.isErrorResponse(r.Body); rerr != nil {
-		return errors.Errorf("Error from Docker server: %s", rerr)
+	if r.Body != nil {
+		defer r.Body.Close()
+
+		// Check server response
+		if rerr := de.isErrorResponse(r.Body); rerr != nil {
+			return errors.Errorf("Error from Docker server: %s", rerr)
+		}
 	}
 
-	dockerLog.Debugf("Image built: %s", imgName)
+	if err == nil {
+		dockerLog.Debugf("Image built: %s", imgName)
+	}
 
 	return err
 }
@@ -268,7 +281,9 @@ func (de *DockerEngine) FetchImage(ctx context.Context, imgName string) error {
 		dockerLog.Debugf("Image fetched: %s", imgName)
 	}
 
-	io.Copy(ioutil.Discard, out)
+	if out != nil {
+		io.Copy(ioutil.Discard, out)
+	}
 
 	return err
 }
