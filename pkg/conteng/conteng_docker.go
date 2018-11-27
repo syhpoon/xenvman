@@ -68,17 +68,13 @@ type DockerEngine struct {
 func NewDockerEngine(params DockerEngineParams) (*DockerEngine, error) {
 	var opts []func(client2 *client.Client) error
 
-	if apiVersion := os.Getenv("DOCKER_API_VERSION"); apiVersion != "" {
-		dockerLog.Infof("Using API version: %s", apiVersion)
-
-		opts = append(opts, client.WithVersion(apiVersion))
-	}
-
 	cli, err := client.NewClientWithOpts(opts...)
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "Error creating docker client")
 	}
+
+	cli.NegotiateAPIVersion(context.Background())
 
 	dockerLog.Debugf("Docker engine client created")
 
