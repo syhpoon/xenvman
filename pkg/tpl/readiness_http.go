@@ -74,64 +74,64 @@ type readinessCheckHttp struct {
 	retryInterval time.Duration
 }
 
-func (rtcp *readinessCheckHttp) init() error {
+func (rh *readinessCheckHttp) init() error {
 	var err error
 
-	if rtcp.params.Body != "" {
-		if rtcp.body, err = regexp.Compile(rtcp.params.Body); err != nil {
+	if rh.params.Body != "" {
+		if rh.body, err = regexp.Compile(rh.params.Body); err != nil {
 			return errors.WithStack(err)
 		}
 	}
 
-	for i, hdrs := range rtcp.params.Headers {
-		if rtcp.headers[i] == nil {
-			rtcp.headers[i] = map[string]*regexp.Regexp{}
+	for i, hdrs := range rh.params.Headers {
+		if rh.headers[i] == nil {
+			rh.headers[i] = map[string]*regexp.Regexp{}
 		}
 
 		for k, v := range hdrs {
-			if rtcp.headers[i][k], err = regexp.Compile(v); err != nil {
+			if rh.headers[i][k], err = regexp.Compile(v); err != nil {
 				return errors.WithStack(err)
 			}
 		}
 	}
 
-	if rtcp.params.RetryInterval != "" {
-		dur, err := time.ParseDuration(rtcp.params.RetryInterval)
+	if rh.params.RetryInterval != "" {
+		dur, err := time.ParseDuration(rh.params.RetryInterval)
 
 		if err != nil {
 			return errors.WithStack(err)
 		} else {
-			rtcp.retryInterval = dur
+			rh.retryInterval = dur
 		}
 	} else {
-		rtcp.retryInterval = 2 * time.Second
+		rh.retryInterval = 2 * time.Second
 	}
 
-	if rtcp.params.RetryLimit == 0 {
-		rtcp.params.RetryLimit = 5
+	if rh.params.RetryLimit == 0 {
+		rh.params.RetryLimit = 5
 	}
 
 	return nil
 }
 
-func (rtcp *readinessCheckHttp) InterpolateParameters(data interface{}) error {
+func (rh *readinessCheckHttp) InterpolateParameters(data interface{}) error {
 	var err error
 
-	if url, err := lib.Interpolate(rtcp.params.Url, data); err != nil {
+	if url, err := lib.Interpolate(rh.params.Url, data); err != nil {
 		return errors.WithStack(err)
 	} else {
-		rtcp.params.Url = url
+		rh.params.Url = url
 	}
 
-	if rtcp.params.Body != "" {
-		if body, err := lib.Interpolate(rtcp.params.Body, data); err != nil {
+	if rh.params.Body != "" {
+		if body, err := lib.Interpolate(rh.params.Body, data); err != nil {
 			return errors.WithStack(err)
 		} else {
-			rtcp.params.Body = body
+			rh.params.Body = body
 		}
 	}
 
-	for _, hdrs := range rtcp.params.Headers {
+	for _, hdrs := range rh.params.Headers {
 		for k, v := range hdrs {
 			if hdrs[k], err = lib.Interpolate(v, data); err != nil {
 				return errors.WithStack(err)
@@ -139,37 +139,37 @@ func (rtcp *readinessCheckHttp) InterpolateParameters(data interface{}) error {
 		}
 	}
 
-	return rtcp.init()
+	return rh.init()
 }
 
-func (rtcp *readinessCheckHttp) WaitUntilReady(ctx context.Context) bool {
+func (rh *readinessCheckHttp) WaitUntilReady(ctx context.Context) bool {
 	cl := http.Client{Timeout: 2 * time.Second}
 
 	i := 0
 
-	for rtcp.params.RetryLimit == 0 || i < rtcp.params.RetryLimit {
+	for rh.params.RetryLimit == 0 || i < rh.params.RetryLimit {
 		if i > 0 {
 			select {
 			case <-ctx.Done():
 				return false
-			case <-time.After(rtcp.retryInterval):
+			case <-time.After(rh.retryInterval):
 			}
 		}
 
 		i += 1
-		resp, err := cl.Get(rtcp.params.Url)
+		resp, err := cl.Get(rh.params.Url)
 
 		if err != nil {
-			readinessHttpLog.Warningf("Error running HTTP readiness check to %s: %s", rtcp.params.Url, err)
+			readinessHttpLog.Warningf("Error running HTTP readiness check to %s: %s", rh.params.Url, err)
 
 			continue
 		}
 
 		// Match status codes
-		if len(rtcp.params.Codes) > 0 {
+		if len(rh.params.Codes) > 0 {
 			found := false
 
-			for _, code := range rtcp.params.Codes {
+			for _, code := range rh.params.Codes {
 				if resp.StatusCode == code {
 					found = true
 					break
@@ -182,7 +182,7 @@ func (rtcp *readinessCheckHttp) WaitUntilReady(ctx context.Context) bool {
 		}
 
 		// Match body
-		if rtcp.body != nil {
+		if rh.body != nil {
 			body, err := ioutil.ReadAll(resp.Body)
 
 			if err != nil {
@@ -191,8 +191,8 @@ func (rtcp *readinessCheckHttp) WaitUntilReady(ctx context.Context) bool {
 				continue
 			}
 
-			if !rtcp.body.Match(body) {
-				readinessHttpLog.Debugf("Body mismatch: %s", rtcp.body.String())
+			if !rh.body.Match(body) {
+				readinessHttpLog.Debugf("Body mismatch: %s", rh.body.String())
 
 				continue
 			}
@@ -208,6 +208,6 @@ func (rtcp *readinessCheckHttp) WaitUntilReady(ctx context.Context) bool {
 	return false
 }
 
-func (rtcp *readinessCheckHttp) String() string {
+func (rh *readinessCheckHttp) String() string {
 	return "http"
 }
