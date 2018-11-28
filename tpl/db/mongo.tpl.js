@@ -21,7 +21,7 @@ function execute(tpl, params) {
     }
   }
 
-  var img = tpl.FetchImage(fmt("mongo:latest"));
+  var img = tpl.FetchImage("mongo:latest");
   var cont = img.NewContainer("mongo");
   var rules = queries.join("\n");
 

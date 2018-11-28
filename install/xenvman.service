@@ -1,0 +1,13 @@
+[Unit]
+Description=Xenvman API server
+After=docker.service
+
+[Service]
+Type=simple                                                                                                            
+User=xenvman
+WorkingDirectory=/opt/xenvman
+ExecStart=<path-to-xenvman-binary> run -c <path-to-xenvman.toml>
+Restart=on-failure                                                                                                     
+                                                                                                                       
+[Install]                                                                                                              
+WantedBy=multi-user.target
