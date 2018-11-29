@@ -55,7 +55,7 @@ func (ip *interpolator) EnvContainersWithLabels(labels ...string) []*tpl.Contain
 	return res
 }
 
-// Return a container possesing a given label.
+// Return a container possessing a given label.
 // Empty value matches any label value
 // If more than one containers match, one of them is returned in arbitrary order
 func (ip *interpolator) EnvContainerWithLabel(label, value string) *tpl.Container {
