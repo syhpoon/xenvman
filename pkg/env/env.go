@@ -39,6 +39,7 @@ import (
 	"github.com/syhpoon/xenvman/pkg/def"
 	"github.com/syhpoon/xenvman/pkg/lib"
 	"github.com/syhpoon/xenvman/pkg/logger"
+	"github.com/syhpoon/xenvman/pkg/metrics"
 	"github.com/syhpoon/xenvman/pkg/tpl"
 )
 
@@ -74,6 +75,8 @@ type Params struct {
 }
 
 func NewEnv(params Params) (env *Env, err error) {
+	metrics.NumberOfEnvironments.WithLabelValues().Add(1)
+
 	id := newEnvId(params.EnvDef.Name)
 	env = &Env{
 		id:            id,
@@ -87,6 +90,8 @@ func NewEnv(params Params) (env *Env, err error) {
 	}
 
 	defer func() {
+		metrics.NumberOfEnvironments.WithLabelValues().Add(-1)
+
 		if r := recover(); r != nil {
 			err = errors.Errorf("Error creating env %s: %s", env.id, r)
 

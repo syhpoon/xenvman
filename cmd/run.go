@@ -33,10 +33,9 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/pkg/errors"
-
 	"os/signal"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/syhpoon/xenvman/pkg/config"
 	"github.com/syhpoon/xenvman/pkg/conteng"
@@ -52,6 +51,7 @@ var runCmd = &cobra.Command{
 	Short: "Run xenvman server",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		_ = config.BindPFlag("listen", cmd.Flag("listen"))
+		_ = config.BindPFlag("tpl.base_dir", cmd.Flag("base"))
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -83,6 +83,8 @@ var runCmd = &cobra.Command{
 		params.TLSCertFile = config.GetString("tls.cert")
 		params.TLSKeyFile = config.GetString("tls.key")
 		params.CengCtx = cengCtx
+
+		runLog.Infof("Base directory: %s", params.BaseTplDir)
 
 		if err := makeDirs([]string{
 			params.BaseTplDir,
@@ -250,4 +252,5 @@ func makeDirs(dirs []string) error {
 
 func init() {
 	runCmd.Flags().StringP("listen", "l", ":9876", "Listen address")
+	runCmd.Flags().StringP("base", "b", "", "Templates base directory")
 }

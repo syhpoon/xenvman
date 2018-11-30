@@ -36,6 +36,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/syhpoon/xenvman/pkg/conteng"
 	"github.com/syhpoon/xenvman/pkg/def"
 	"github.com/syhpoon/xenvman/pkg/env"
@@ -164,6 +165,9 @@ func (s *Server) setupHandlers() {
 	// POST /api/v1/env/{id}/keepalive - Keep alive an environment
 	s.router.HandleFunc("/api/v1/env/{id}/keepalive",
 		hf(s.keepaliveEnvHandler)).Methods(http.MethodPost)
+
+	// Prometheus metrics
+	s.router.Handle("/metrics", promhttp.Handler())
 
 	//TODO: API doc
 	//s.router.HandleFunc("/apidoc", s.handleRoot)
