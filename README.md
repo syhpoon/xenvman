@@ -5,6 +5,7 @@
 Table of Contents
 =================
 
+   * [Table of Contents](#table-of-contents)
    * [Overview](#overview)
    * [Installation](#installation)
       * [Download release](#download-release)
@@ -55,21 +56,31 @@ Table of Contents
          * [Helper JS functions](#helper-js-functions)
             * [fmt(format :: string, args :: any...)](#fmtformat--string-args--any)
             * [type](#type)
-               * [type.EnsureString()](#typeensurestring)
-               * [type.EnsureNumber()](#typeensurenumber)
-               * [type.EnsureListOfStrings()](#typeensurelistofstrings)
-               * [type.EnsureListOfNumbers()](#typeensurelistofnumbers)
-               * [type.FromBase64()](#typefrombase64)
-               * [type.IsArray()](#typeisarray)
-               * [type.IsDefined()](#typeisdefined)
+               * [type.EnsureString(arg)](#typeensurestringarg)
+               * [type.EnsureNumber(arg)](#typeensurenumberarg)
+               * [type.EnsureListOfStrings(arg)](#typeensurelistofstringsarg)
+               * [type.EnsureListOfNumbers(arg)](#typeensurelistofnumbersarg)
+               * [type.FromBase64(name :: string, value :: string)](#typefrombase64name--string-value--string)
+               * [type.IsArray(arg)](#typeisarrayarg)
+               * [type.IsDefined(arg)](#typeisdefinedarg)
       * [Interpolation](#interpolation)
          * [Workspace files interpolation](#workspace-files-interpolation)
          * [Mounted files interpolation](#mounted-files-interpolation)
          * [Readiness checks interpolation](#readiness-checks-interpolation)
    * [HTTP API](#http-api)
+      * [POST /api/v1/env](#post-apiv1env)
+         * [Body](#body)
+            * [tpl](#tpl)
+            * [env_options](#env_options)
+         * [Response body](#response-body)
+            * [tpl-data](#tpl-data)
+            * [container-data](#container-data)
+      * [DELETE /api/v1/env/{id}](#delete-apiv1envid)
+         * [Query parameters](#query-parameters)
+      * [POST /api/v1/env/{id}/keepalive](#post-apiv1envidkeepalive)
    * [Clients](#clients)
       * [Golang](#golang)
-      
+
 # Overview
 
 `xenvman` is an extensible environment manager which is used to
@@ -520,13 +531,26 @@ It's nothing more than an exported Golang function [`fmt.Printf`](https://golang
 
 `type` module contains functions related to managing types.
 
-##### type.EnsureString()
-##### type.EnsureNumber()
-##### type.EnsureListOfStrings()
-##### type.EnsureListOfNumbers()
-##### type.FromBase64()
-##### type.IsArray()
-##### type.IsDefined()
+All `Ensure*` functions take a value and panic if the value is not
+of correspdonging type. It passes otherwise (including value not
+being defined).
+
+##### type.EnsureString(arg)
+##### type.EnsureNumber(arg)
+##### type.EnsureListOfStrings(arg)
+##### type.EnsureListOfNumbers(arg)
+##### type.FromBase64(name :: string, value :: string)
+
+Decodes a value from base64 string to a byte array.
+`name` argument is only used for logging in case of errors.
+
+##### type.IsArray(arg)
+
+Returns true if given argument is of array type.
+
+##### type.IsDefined(arg)
+
+Returns true if given argument is neither `null` nor `undefined`.
 
 ## Interpolation
 TODO
@@ -541,10 +565,102 @@ TODO
 TODO
 
 # HTTP API
-TODO
+
+`xenvman` exposes all its functionality using HTTP API.
+
+## POST /api/v1/env
+
+Create a new environment.
+
+### Body
+
+```
+{
+  // Environment name
+  "name" :: string,
+ 
+  // Environment description
+  "description" :: string,
+ 
+  // Templates to use
+  "templates" :: [tpl]
+
+  // Additional env options
+  "options" :: env_options
+}
+```
+
+#### tpl
+```
+{
+  // Template name (a path relative to xenvman base template dir)
+  "tpl" :: string,
+  
+  // Template parameters as arbitrary JSON object
+  "parameters" :: object 
+}
+```
+
+#### env_options
+```
+{
+  // Environment keep alive setting
+  "keep_alive" :: string
+}
+```
+
+### Response body
+
+```
+{
+  // Environment id
+  "id" :: string,
+  
+  // Templates data
+  "templates" :: {name :: string -> [tpl-data]}
+}
+```
+
+#### tpl-data
+```
+{
+  // Template containers
+  "containers" :: {name :: string -> [container-data]}
+}
+```
+
+#### container-data
+```
+{
+  // container port to exposed address:port
+  // Exposed address contains public xenvman ip plus exposed container port
+  "ports" :: {port :: int -> string}
+}
+```
+
+## DELETE /api/v1/env/{id}
+
+Delete an environment.
+
+### Query parameters
+
+* id - Environment id
+
+## POST /api/v1/env/{id}/keepalive
+
+Keep alive an environment.
+
+A client needs to periodicall call this endpoint in order to keep
+the environemnt running.
 
 # Clients
-TODO
+
+Because `xenvman` uses plain HTTP API, any language/tool capable of
+talking HTTP can be used as a client. But it's arguably easier to have
+native and idiomatic libraries for a language of choice, especially
+to embed managing environments directly into integration tests themselves.
+
+Currently `xenvman` only has support for `Go` language client.
 
 ## Golang
 TODO

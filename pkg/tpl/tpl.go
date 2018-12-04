@@ -28,11 +28,11 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sync"
 
-	"github.com/pkg/errors"
+	"path/filepath"
 
+	"github.com/pkg/errors"
 	"github.com/syhpoon/xenvman/pkg/lib"
 	"github.com/syhpoon/xenvman/pkg/logger"
 )
@@ -57,8 +57,6 @@ type Tpl struct {
 	dataDir  string
 	wsDir    string
 	mountDir string
-
-	readinessChecks []ReadinessCheck
 
 	ctx context.Context
 	sync.RWMutex
@@ -151,25 +149,4 @@ func (tpl *Tpl) GetBuildImages() []*BuildImage {
 
 func (tpl *Tpl) GetFetchImages() []*FetchImage {
 	return tpl.fetchImages
-}
-
-func (tpl *Tpl) GetReadinessChecks() []ReadinessCheck {
-	return tpl.readinessChecks
-}
-
-func (tpl *Tpl) AddReadinessCheck(name string,
-	params map[string]interface{}) {
-	checkCancelled(tpl.ctx)
-
-	initF, ok := readinessMap[name]
-
-	if !ok {
-		panic(errors.Errorf("Unknown readiness check type: %s", name))
-	}
-
-	check := initF(params)
-
-	tpl.readinessChecks = append(tpl.readinessChecks, check)
-
-	tplLog.Infof("[%s] Added readiness check: %s", tpl.envId, name)
 }

@@ -162,6 +162,10 @@ func (s *Server) setupHandlers() {
 	s.router.HandleFunc("/api/v1/env/{id}", hf(s.deleteEnvHandler)).
 		Methods(http.MethodDelete)
 
+	// PATCH /api/v1/env/{id} - Updated an environment
+	s.router.HandleFunc("/api/v1/env/{id}", hf(s.updateEnvHandler)).
+		Methods(http.MethodPatch)
+
 	// POST /api/v1/env/{id}/keepalive - Keep alive an environment
 	s.router.HandleFunc("/api/v1/env/{id}/keepalive",
 		hf(s.keepaliveEnvHandler)).Methods(http.MethodPost)
@@ -268,6 +272,30 @@ func (s *Server) deleteEnvHandler(w http.ResponseWriter, req *http.Request) {
 	s.Unlock()
 
 	ApiSendMessage(w, http.StatusOK, "Env deleted")
+}
+
+func (s *Server) updateEnvHandler(w http.ResponseWriter, req *http.Request) {
+	defer req.Body.Close()
+
+	vars := mux.Vars(req)
+	id := vars["id"]
+
+	s.RLock()
+	e, ok := s.envs[id]
+	s.RUnlock()
+
+	if !ok {
+		serverLog.Errorf("Env not found", id)
+
+		ApiSendMessage(w, http.StatusNotFound, "Env not found")
+
+		return
+	}
+
+	_ = e
+
+	//TODO
+	ApiSendMessage(w, http.StatusOK, "Env updated")
 }
 
 func (s *Server) keepaliveEnvHandler(w http.ResponseWriter, req *http.Request) {

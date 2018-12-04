@@ -54,6 +54,7 @@ type Container struct {
 	environ           map[string]string
 	labels            map[string]string
 	needInterpolating map[string]bool
+	readinessChecks   []ReadinessCheck
 	ctx               context.Context
 }
 
@@ -207,4 +208,26 @@ func (cont *Container) Hostname() string {
 	tplName := strings.Replace(cont.tplName, "/", "-", -1)
 
 	return fmt.Sprintf("%s.%d.%s", cont.name, cont.tplIdx, tplName)
+}
+
+func (cont *Container) GetReadinessChecks() []ReadinessCheck {
+	return cont.readinessChecks
+}
+
+func (cont *Container) AddReadinessCheck(name string,
+	params map[string]interface{}) {
+	checkCancelled(cont.ctx)
+
+	initF, ok := readinessMap[name]
+
+	if !ok {
+		panic(errors.Errorf("Unknown readiness check type: %s", name))
+	}
+
+	check := initF(params)
+
+	cont.readinessChecks = append(cont.readinessChecks, check)
+
+	tplLog.Infof("[%s] Added readiness check for %s: %s",
+		cont.envId, cont.name, name)
 }

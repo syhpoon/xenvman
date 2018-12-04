@@ -28,8 +28,9 @@ import "fmt"
 
 // This one is used to interpolate readiness check parameters
 type readinessInterpolator struct {
+	containerName   string
 	externalAddress string
-	ports           map[string]map[uint16]uint16
+	ports           map[uint16]uint16
 }
 
 // Return an external address associated with xenvman api server
@@ -37,18 +38,12 @@ func (ri *readinessInterpolator) ExternalAddress() string {
 	return ri.externalAddress
 }
 
-func (ri *readinessInterpolator) ExposedContainerPort(container string,
-	port int) uint16 {
-	p, ok := ri.ports[container]
+func (ri *readinessInterpolator) ExposedPort(port int) uint16 {
+	eport, ok := ri.ports[uint16(port)]
 
 	if !ok {
-		panic(fmt.Sprintf("No ports for container %s", container))
-	}
-
-	eport, ok := p[uint16(port)]
-
-	if !ok {
-		panic(fmt.Sprintf("Port %d is not exposed for %s", port, container))
+		panic(fmt.Sprintf("Port %d is not exposed for %s",
+			port, ri.containerName))
 	}
 
 	return eport

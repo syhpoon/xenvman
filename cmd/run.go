@@ -154,8 +154,8 @@ func wait(ctx context.Context, cancel, cengCancel func(),
 	wg *sync.WaitGroup, errch <-chan error) {
 	c := make(chan os.Signal, 1)
 
-	signal.Notify(c, os.Interrupt)
 	signal.Notify(c,
+		os.Interrupt,
 		syscall.SIGTERM,
 		syscall.SIGABRT,
 		syscall.SIGPIPE,

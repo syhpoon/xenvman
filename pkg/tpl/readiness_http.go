@@ -27,10 +27,11 @@ package tpl
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"regexp"
 	"time"
+
+	"io/ioutil"
+	"net/http"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"

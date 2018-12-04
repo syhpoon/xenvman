@@ -27,12 +27,13 @@ package env
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"sort"
 	"sync"
 	"time"
+
+	"io/ioutil"
+	"path/filepath"
 
 	"github.com/pkg/errors"
 	"github.com/syhpoon/xenvman/pkg/conteng"
@@ -227,7 +228,7 @@ func NewEnv(params Params) (env *Env, err error) {
 	env.ports = ports
 
 	// Perform readiness checks
-	if err := env.waitUntilReady(); err != nil {
+	if err := env.waitUntilReady(containers); err != nil {
 		env.Terminate()
 
 		return nil, errors.Wrapf(err, "Error running readiness checks")
@@ -245,15 +246,16 @@ func NewEnv(params Params) (env *Env, err error) {
 	return env, nil
 }
 
-func (env *Env) waitUntilReady() error {
+func (env *Env) waitUntilReady(containers []*tpl.Container) error {
 	var checks []tpl.ReadinessCheck
 
-	for _, t := range env.tpls {
-		for _, check := range t.GetReadinessChecks() {
+	for _, cont := range containers {
+		for _, check := range cont.GetReadinessChecks() {
+			tplName, tplIdx := cont.Template()
 
 			intrp := &readinessInterpolator{
 				externalAddress: env.params.ExportAddress,
-				ports:           env.ports[t.GetName()][t.GetIdx()],
+				ports:           env.ports[tplName][tplIdx][cont.Name()],
 			}
 
 			if err := check.InterpolateParameters(intrp); err != nil {
@@ -435,13 +437,13 @@ func (er executeResults) Swap(i, j int)      { er[i], er[j] = er[j], er[i] }
 func (er executeResults) Less(i, j int) bool { return er[i].idx < er[j].idx }
 
 // Execute templates in parallel
-func (e *Env) executeTemplates() ([]*tpl.Tpl, error) {
+func (env *Env) executeTemplates() ([]*tpl.Tpl, error) {
 	tplIdx := map[string]int{}
 
-	ctx, cancel := context.WithCancel(e.params.Ctx)
+	ctx, cancel := context.WithCancel(env.params.Ctx)
 	defer cancel()
 
-	tpls := e.params.EnvDef.Templates
+	tpls := env.params.EnvDef.Templates
 	rch := make(chan *executeResult, len(tpls))
 	errch := make(chan error, len(tpls))
 
@@ -450,11 +452,11 @@ func (e *Env) executeTemplates() ([]*tpl.Tpl, error) {
 		tplIdx[template.Tpl]++
 
 		go func(tplObj *def.Tpl, idx int) {
-			t, err := tpl.Execute(e.id, tplObj.Tpl, idx,
+			t, err := tpl.Execute(env.id, tplObj.Tpl, idx,
 				tpl.ExecuteParams{
-					TplDir:    e.params.BaseTplDir,
-					WsDir:     e.wsDir,
-					MountDir:  e.mountDir,
+					TplDir:    env.params.BaseTplDir,
+					WsDir:     env.wsDir,
+					MountDir:  env.mountDir,
 					TplParams: tplObj.Parameters,
 					Ctx:       ctx,
 				})
@@ -502,33 +504,33 @@ func (e *Env) executeTemplates() ([]*tpl.Tpl, error) {
 	return templates, nil
 }
 
-func (e *Env) IsAlive() bool {
-	e.RLock()
-	alive := !e.terminating
-	e.RUnlock()
+func (env *Env) IsAlive() bool {
+	env.RLock()
+	alive := !env.terminating
+	env.RUnlock()
 
 	return alive
 }
 
-func (e *Env) Terminate() error {
-	e.Lock()
+func (env *Env) Terminate() error {
+	env.Lock()
 
-	if e.terminating {
-		e.Unlock()
+	if env.terminating {
+		env.Unlock()
 		return nil
 	}
 
-	e.terminating = true
-	e.Unlock()
+	env.terminating = true
+	env.Unlock()
 
-	envLog.Infof("Terminating env %s", e.id)
+	envLog.Infof("Terminating env %s", env.id)
 
 	var err error
 
 	// Stop containers
-	for _, cid := range e.containers {
-		if err = e.ceng.RemoveContainer(e.params.Ctx, cid); err != nil {
-			envLog.Errorf("Error terminating env %s: %s", e.id, err)
+	for _, cid := range env.containers {
+		if err = env.ceng.RemoveContainer(env.params.Ctx, cid); err != nil {
+			envLog.Errorf("Error terminating env %s: %s", env.id, err)
 		}
 
 		envLog.Debugf("Container %s removed", cid)
@@ -539,47 +541,47 @@ func (e *Env) Terminate() error {
 	}
 
 	// Clean up workspace and mount dirs
-	envLog.Debugf("[%s] Removing workspace dir %s", e.id, e.wsDir)
+	envLog.Debugf("[%s] Removing workspace dir %s", env.id, env.wsDir)
 
-	if err := os.RemoveAll(e.wsDir); err != nil {
+	if err := os.RemoveAll(env.wsDir); err != nil {
 		envLog.Errorf("[%s] Error removing workspace dir %s: %s",
-			e.id, e.wsDir, err)
+			env.id, env.wsDir, err)
 	}
 
-	envLog.Debugf("[%s] Removing mount dir %s", e.id, e.mountDir)
+	envLog.Debugf("[%s] Removing mount dir %s", env.id, env.mountDir)
 
-	if err := os.RemoveAll(e.mountDir); err != nil {
+	if err := os.RemoveAll(env.mountDir); err != nil {
 		envLog.Errorf("[%s] Error removing mount dir %s: %s",
-			e.id, e.mountDir, err)
+			env.id, env.mountDir, err)
 	}
 
 	// Remove images
-	for tag := range e.builtImages {
-		if err := e.ceng.RemoveImage(e.params.Ctx, tag); err != nil {
+	for tag := range env.builtImages {
+		if err := env.ceng.RemoveImage(env.params.Ctx, tag); err != nil {
 			envLog.Warningf("Error removing image: %+v", err)
 		}
 	}
 
 	// Remove network
-	err = e.ceng.RemoveNetwork(e.params.Ctx, e.netId)
+	err = env.ceng.RemoveNetwork(env.params.Ctx, env.netId)
 
 	if err == nil {
-		envLog.Debugf("Network %s removed", e.netId)
+		envLog.Debugf("Network %s removed", env.netId)
 	}
 
 	return err
 }
 
-func (e *Env) KeepAlive() {
-	e.keepAliveChan <- true
+func (env *Env) KeepAlive() {
+	env.keepAliveChan <- true
 }
 
-func (e *Env) Id() string {
-	return e.id
+func (env *Env) Id() string {
+	return env.id
 }
 
-func (e *Env) keepAliveWatchdog(ctx context.Context) {
-	d := time.Duration(e.ed.Options.KeepAlive)
+func (env *Env) keepAliveWatchdog(ctx context.Context) {
+	d := time.Duration(env.ed.Options.KeepAlive)
 
 	keepAliveTimer := time.NewTimer(d)
 
@@ -587,26 +589,26 @@ func (e *Env) keepAliveWatchdog(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-e.keepAliveChan:
+		case <-env.keepAliveChan:
 			if !keepAliveTimer.Stop() {
 				<-keepAliveTimer.C
 			}
 
 			keepAliveTimer.Reset(d)
 		case <-keepAliveTimer.C:
-			envLog.Infof("Keep alive timeout triggered for %s, terminating", e.id)
+			envLog.Infof("Keep alive timeout triggered for %s, terminating", env.id)
 
-			_ = e.Terminate()
+			_ = env.Terminate()
 
 			return
 		}
 	}
 }
 
-func (e *Env) Export() *Exported {
+func (env *Env) Export() *Exported {
 	templates := map[string][]*TplData{}
 
-	for tplName, tpls := range e.ports {
+	for tplName, tpls := range env.ports {
 		for _, t := range tpls {
 			tpld := &TplData{
 				Containers: map[string]*ContainerData{},
@@ -619,7 +621,7 @@ func (e *Env) Export() *Exported {
 
 				for ip, ep := range ps {
 					tpld.Containers[cont].Ports[int(ip)] = fmt.Sprintf("%s:%d",
-						e.params.ExportAddress, ep)
+						env.params.ExportAddress, ep)
 				}
 			}
 
@@ -628,7 +630,7 @@ func (e *Env) Export() *Exported {
 	}
 
 	return &Exported{
-		Id:        e.id,
+		Id:        env.id,
 		Templates: templates,
 	}
 }
