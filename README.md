@@ -96,7 +96,7 @@ xenvman can be used to:
 * Link containers together in a single isolated network
 * Expose container ports for external access
 
-For a detailed example take a look at [tutorial](docs/tutorial.md).
+For a detailed example take a look at [tutorial](https://medium.com/@syhpoon/xenvman-tutorial-c9967ddefaae).
 
 # Installation
 
