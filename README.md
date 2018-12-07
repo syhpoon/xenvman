@@ -535,20 +535,20 @@ All `Ensure*` functions take a value and panic if the value is not
 of correspdonging type. It passes otherwise (including value not
 being defined).
 
-##### type.EnsureString(arg)
-##### type.EnsureNumber(arg)
-##### type.EnsureListOfStrings(arg)
-##### type.EnsureListOfNumbers(arg)
+##### type.EnsureString(arg :: any)
+##### type.EnsureNumber(arg :: any)
+##### type.EnsureListOfStrings(arg :: any)
+##### type.EnsureListOfNumbers(arg :: any)
 ##### type.FromBase64(name :: string, value :: string)
 
 Decodes a value from base64 string to a byte array.
 `name` argument is only used for logging in case of errors.
 
-##### type.IsArray(arg)
+##### type.IsArray(arg :: any)
 
 Returns true if given argument is of array type.
 
-##### type.IsDefined(arg)
+##### type.IsDefined(arg :: any)
 
 Returns true if given argument is neither `null` nor `undefined`.
 
