@@ -25,7 +25,11 @@ package env
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/syhpoon/xenvman/pkg/lib"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -33,7 +37,7 @@ import (
 	"github.com/syhpoon/xenvman/pkg/def"
 )
 
-func TestEnvInvalidTemplate(t *testing.T) {
+func TestEnvNonesistentTemplate(t *testing.T) {
 	ctx := context.Background()
 	ceng := new(conteng.MockedEngine)
 
@@ -55,4 +59,83 @@ func TestEnvInvalidTemplate(t *testing.T) {
 	})
 
 	require.Contains(t, err.Error(), "no such file or directory")
+}
+
+func TestEnvInvalidTemplateName(t *testing.T) {
+	ctx := context.Background()
+	ceng := new(conteng.MockedEngine)
+
+	ceng.On("RemoveNetwork", mock.Anything, mock.AnythingOfType("string")).
+		Return(nil)
+
+	params := Params{
+		EnvDef: &def.InputEnv{
+			Name:      "test",
+			Templates: []*def.Tpl{{Tpl: " /etc/passwd"}},
+		},
+		ContEng:    ceng,
+		BaseTplDir: "/tmp/nonexistent",
+		Ctx:        ctx,
+	}
+
+	_, err := NewEnv(params)
+	require.Contains(t, err.Error(), "no such file or directory")
+
+	params.EnvDef.Templates[0].Tpl = "../out/and/out"
+	_, err = NewEnv(params)
+	require.Contains(t, err.Error(), "must not contain")
+}
+
+func TestEnvOk(t *testing.T) {
+	ctx := context.Background()
+	ceng := new(conteng.MockedEngine)
+
+	imgName := "test-image"
+	contName := "test-cont"
+	label := "wut"
+
+	ceng.On("RemoveNetwork", mock.Anything, mock.AnythingOfType("string")).
+		Return(nil)
+
+	ceng.On("FetchImage", mock.Anything, imgName).Return(nil)
+
+	ceng.On("CreateNetwork", mock.Anything, mock.Anything).
+		Return("net-id", "10.0.0.0/24", nil)
+
+	ceng.On("RunContainer", mock.Anything, "test-cont.0.ok", imgName,
+		mock.Anything).Return("cont-id", nil)
+
+	ceng.On("RemoveContainer", mock.Anything, "cont-id").Return(nil)
+
+	cwd, err := os.Getwd()
+	require.Nil(t, err)
+
+	tmpDir := filepath.Join(os.TempDir(), "xenvman-test-"+lib.NewId())
+
+	env, err := NewEnv(Params{
+		EnvDef: &def.InputEnv{
+			Name: "test",
+			Templates: []*def.Tpl{
+				{
+					Tpl: "ok",
+					Parameters: map[string]interface{}{
+						"image":     imgName,
+						"container": contName,
+						"label":     label,
+					},
+				},
+			},
+			Options: &def.EnvOptions{},
+		},
+		ContEng:      ceng,
+		BaseTplDir:   filepath.Join(cwd, "./testdata"),
+		BaseWsDir:    filepath.Join(tmpDir, "ws"),
+		BaseMountDir: filepath.Join(tmpDir, "mount"),
+		Ctx:          ctx,
+	})
+
+	_ = os.RemoveAll(tmpDir)
+
+	require.Nil(t, err)
+	require.Len(t, env.containers, 1)
 }
