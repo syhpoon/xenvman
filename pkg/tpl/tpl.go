@@ -41,6 +41,7 @@ var tplLog = logger.GetLogger("xenvman.pkg.tpl.tpl")
 
 var readinessMap = map[string]func(map[string]interface{}) ReadinessCheck{
 	"http": readinessCheckHttpInit,
+	"net":  readinessCheckNetInit,
 }
 
 type Tpl struct {

@@ -28,9 +28,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/mock"
-	"github.com/syhpoon/xenvman/pkg/conteng"
-
 	"github.com/stretchr/testify/require"
+	"github.com/syhpoon/xenvman/pkg/conteng"
 	"github.com/syhpoon/xenvman/pkg/def"
 )
 
@@ -42,7 +41,7 @@ func TestEnvInvalidTemplate(t *testing.T) {
 		Return(nil)
 
 	_, err := NewEnv(Params{
-		EnvDef: &def.Env{
+		EnvDef: &def.InputEnv{
 			Name: "test",
 			Templates: []*def.Tpl{
 				{

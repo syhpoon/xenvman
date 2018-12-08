@@ -29,14 +29,13 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/syhpoon/xenvman/pkg/env"
-
 	"github.com/json-iterator/go"
 	"github.com/pkg/errors"
+	"github.com/syhpoon/xenvman/pkg/def"
 )
 
 type Env struct {
-	*env.Exported
+	*def.OutputEnv
 
 	httpClient    http.Client
 	serverAddress string

@@ -194,7 +194,7 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	edef := def.Env{}
+	edef := def.InputEnv{}
 
 	if err = json.Unmarshal(body, &edef); err != nil {
 		serverLog.Errorf("Error decoding request body: %s", err)

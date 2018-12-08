@@ -22,7 +22,7 @@
  SOFTWARE.
 */
 
-package env
+package def
 
 import "github.com/pkg/errors"
 
@@ -31,7 +31,7 @@ type ContainerData struct {
 	Ports map[int]string `json:"ports"`
 }
 
-func newContainerData() *ContainerData {
+func NewContainerData() *ContainerData {
 	return &ContainerData{
 		Ports: map[int]string{},
 	}
@@ -42,12 +42,12 @@ type TplData struct {
 	Containers map[string]*ContainerData `json:"containers"`
 }
 
-type Exported struct {
+type OutputEnv struct {
 	Id        string                `json:"id"`
 	Templates map[string][]*TplData `json:"templates"` // tpl name -> [TplData]
 }
 
-func (e *Exported) GetContainer(tplName string, tplIdx int,
+func (e *OutputEnv) GetContainer(tplName string, tplIdx int,
 	contName string) (*ContainerData, error) {
 	tpls, ok := e.Templates[tplName]
 

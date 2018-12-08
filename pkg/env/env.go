@@ -52,7 +52,7 @@ type Env struct {
 	wsDir         string
 	mountDir      string
 	ports         ports
-	ed            *def.Env
+	ed            *def.InputEnv
 	ceng          conteng.ContainerEngine
 	netId         string
 	containers    []string
@@ -65,7 +65,7 @@ type Env struct {
 }
 
 type Params struct {
-	EnvDef        *def.Env
+	EnvDef        *def.InputEnv
 	ContEng       conteng.ContainerEngine
 	PortRange     *lib.PortRange
 	BaseTplDir    string
@@ -605,18 +605,18 @@ func (env *Env) keepAliveWatchdog(ctx context.Context) {
 	}
 }
 
-func (env *Env) Export() *Exported {
-	templates := map[string][]*TplData{}
+func (env *Env) Export() *def.OutputEnv {
+	templates := map[string][]*def.TplData{}
 
 	for tplName, tpls := range env.ports {
 		for _, t := range tpls {
-			tpld := &TplData{
-				Containers: map[string]*ContainerData{},
+			tpld := &def.TplData{
+				Containers: map[string]*def.ContainerData{},
 			}
 
 			for cont, ps := range t {
 				if _, ok := tpld.Containers[cont]; !ok {
-					tpld.Containers[cont] = newContainerData()
+					tpld.Containers[cont] = def.NewContainerData()
 				}
 
 				for ip, ep := range ps {
@@ -629,7 +629,7 @@ func (env *Env) Export() *Exported {
 		}
 	}
 
-	return &Exported{
+	return &def.OutputEnv{
 		Id:        env.id,
 		Templates: templates,
 	}

@@ -32,7 +32,7 @@ type EnvOptions struct {
 	KeepAlive Duration `json:"keep_alive,omitempty"`
 }
 
-type Env struct {
+type InputEnv struct {
 	// Environment name
 	Name string `json:"name"`
 	// Environment description
@@ -44,7 +44,7 @@ type Env struct {
 	Options *EnvOptions `json:"options"`
 }
 
-func (ed *Env) Validate() error {
+func (ed *InputEnv) Validate() error {
 	if ed.Name == "" {
 		return fmt.Errorf("Env name is empty")
 	}

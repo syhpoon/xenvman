@@ -33,6 +33,6 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print xenvman version",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("xenvman - version 0.0.1")
+		fmt.Println("xenvman - version 1.0.0")
 	},
 }
