@@ -74,7 +74,7 @@ func New(params Params) *Client {
 	}
 }
 
-func (cl *Client) MustCreateEnv(envDef *def.Env) *Env {
+func (cl *Client) MustCreateEnv(envDef *def.OutputEnv) *Env {
 	env, err := cl.NewEnv(envDef)
 
 	if err != nil {
@@ -84,7 +84,7 @@ func (cl *Client) MustCreateEnv(envDef *def.Env) *Env {
 	return env
 }
 
-func (cl *Client) NewEnv(envDef *def.Env) (*Env, error) {
+func (cl *Client) NewEnv(envDef *def.OutputEnv) (*Env, error) {
 	url := fmt.Sprintf("%s/api/v1/env", cl.params.ServerAddress)
 
 	b, err := json.Marshal(envDef)
@@ -127,7 +127,7 @@ func (cl *Client) NewEnv(envDef *def.Env) (*Env, error) {
 	e := &Env{}
 
 	if r.Env != nil {
-		e.Exported = r.Env
+		e.OutputEnv = r.Env
 		e.httpClient = cl.httpClient
 		e.serverAddress = cl.params.ServerAddress
 	}
