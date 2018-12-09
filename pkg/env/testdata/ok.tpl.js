@@ -1,6 +1,24 @@
 function execute(tpl, params) {
-  var img = tpl.FetchImage(params.image);
-  var cont = img.NewContainer(params.container);
+  // Fetch image
+  var fimg = tpl.FetchImage(params.fimage);
+  var fcont = fimg.NewContainer(params.fcontainer);
 
-  cont.SetLabel("test", params.label)
+  fcont.SetLabel("ftest", params.flabel);
+
+  // Build image
+  var bimg = tpl.BuildImage(params.bimage);
+
+  bimg.CopyDataToWorkspace("ws");
+  bimg.InterpolateWorkspaceFile("ws", {
+    "image": params.bimage,
+    "cont": params.bcontainer
+  });
+
+  var bin = type.FromBase64("binary", params.binary);
+  bimg.AddFileToWorkspace("binary", bin, 0755);
+
+  var bcont = bimg.NewContainer(params.bcontainer);
+  bcont.SetLabel("btest", params.blabel);
+
+  bcont.MountData("mount", "/mounted", {"interpolate": true});
 }
