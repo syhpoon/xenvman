@@ -3,6 +3,7 @@ function execute(tpl, params) {
   var fimg = tpl.FetchImage(params.fimage);
   var fcont = fimg.NewContainer(params.fcontainer);
 
+  fcont.SetPorts(params.fport);
   fcont.SetLabel("ftest", params.flabel);
 
   // Build image
@@ -18,6 +19,8 @@ function execute(tpl, params) {
   bimg.AddFileToWorkspace("binary", bin, 0755);
 
   var bcont = bimg.NewContainer(params.bcontainer);
+
+  bcont.SetPorts(params.bport);
   bcont.SetLabel("btest", params.blabel);
 
   bcont.MountData("mount", "/mounted", {"interpolate": true});

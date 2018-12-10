@@ -30,6 +30,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -95,10 +97,12 @@ func TestEnvOk(t *testing.T) {
 	fimgName := "test-image-fetch"
 	fcontName := "test-cont-fetch"
 	flabel := "wut-fetch"
+	fport := 5000
 
 	bimgName := "test-image-build"
 	bcontName := "test-cont-build"
 	blabel := "wut-build"
+	bport := 6000
 
 	ceng.On("CreateNetwork", mock.Anything, mock.Anything).
 		Return("net-id", "10.0.0.0/24", nil)
@@ -118,6 +122,7 @@ func TestEnvOk(t *testing.T) {
 		mock.Anything).Return("bcont-id", nil)
 
 	ceng.On("RemoveContainer", mock.Anything, mock.Anything).Return(nil)
+	ceng.On("RemoveImage", mock.Anything, mock.Anything).Return(nil)
 
 	cwd, err := os.Getwd()
 	require.Nil(t, err)
@@ -140,8 +145,10 @@ func TestEnvOk(t *testing.T) {
 						"fimage":     fimgName,
 						"fcontainer": fcontName,
 						"flabel":     flabel,
+						"fport":      fport,
 						"bimage":     bimgName,
 						"bcontainer": bcontName,
+						"bport":      bport,
 						"blabel":     blabel,
 						"binary":     binary,
 					},
@@ -149,11 +156,13 @@ func TestEnvOk(t *testing.T) {
 			},
 			Options: &def.EnvOptions{},
 		},
-		ContEng:      ceng,
-		BaseTplDir:   filepath.Join(cwd, "./testdata"),
-		BaseWsDir:    filepath.Join(tmpDir, "ws"),
-		BaseMountDir: filepath.Join(tmpDir, "mount"),
-		Ctx:          ctx,
+		ContEng:       ceng,
+		BaseTplDir:    filepath.Join(cwd, "./testdata"),
+		BaseWsDir:     filepath.Join(tmpDir, "ws"),
+		BaseMountDir:  filepath.Join(tmpDir, "mount"),
+		PortRange:     lib.NewPortRange(20000, 30000),
+		ExportAddress: "localhost",
+		Ctx:           ctx,
 	})
 
 	defer os.RemoveAll(tmpDir)
@@ -164,7 +173,6 @@ func TestEnvOk(t *testing.T) {
 	require.Contains(t, env.containers, "fcont-id")
 
 	// Check workspace files
-
 	wsGlob := filepath.Join(tmpDir, "ws", envName+"*", tplName, "0",
 		"xenv-ok-"+bimgName+":*")
 
@@ -206,5 +214,57 @@ func TestEnvOk(t *testing.T) {
 	require.Equal(t, string(bytes),
 		fmt.Sprintf("%s.0.%s", bcontName, tplName))
 
-	//TODO: Readiness checks, exposed ports
+	env.KeepAlive()
+
+	// Make sure ports are properly exposed
+	exported := env.Export()
+
+	eb := exported.Templates["ok"][0].Containers[bcontName].Ports[bport]
+	ef := exported.Templates["ok"][0].Containers[fcontName].Ports[fport]
+
+	bsplit := strings.Split(eb, ":")
+	fsplit := strings.Split(ef, ":")
+
+	ebp, err := strconv.ParseInt(bsplit[1], 0, 16)
+	require.Nil(t, err)
+	fbp, err := strconv.ParseInt(bsplit[1], 0, 16)
+	require.Nil(t, err)
+
+	require.Equal(t, bsplit[0], "localhost")
+	require.True(t, ebp >= 20000 && ebp <= 30000)
+
+	require.Equal(t, fsplit[0], "localhost")
+	require.True(t, fbp >= 20000 && fbp <= 30000)
+
+	// Make sure temporary files have been cleaned after Terminate
+	require.Nil(t, env.Terminate())
+
+	wsglob := filepath.Join(tmpDir, "ws", "*")
+	wsFiles, err := filepath.Glob(wsglob)
+	require.Nil(t, err)
+	require.Empty(t, wsFiles)
+
+	mountglob := filepath.Join(tmpDir, "mounts", "*")
+	mountFiles, err := filepath.Glob(mountglob)
+	require.Nil(t, err)
+	require.Empty(t, mountFiles)
+
+	// Mock assertion
+	ceng.AssertCalled(t, "FetchImage", mock.Anything, fimgName)
+	ceng.AssertCalled(t, "BuildImage", mock.Anything, bimgName, mock.Anything)
+
+	ceng.AssertCalled(t, "RunContainer", mock.Anything,
+		fmt.Sprintf("%s.0.ok", fcontName), fimgName,
+		mock.Anything)
+
+	ceng.AssertCalled(t, "RunContainer", mock.Anything,
+		fmt.Sprintf("%s.0.ok", bcontName), bimgName,
+		mock.Anything)
+
+	ceng.AssertCalled(t, "RemoveContainer", mock.Anything, "fcont-id")
+	ceng.AssertCalled(t, "RemoveContainer", mock.Anything, "bcont-id")
+
+	ceng.AssertCalled(t, "RemoveImage", mock.Anything, bimgName)
+
+	//TODO: Readiness checks
 }

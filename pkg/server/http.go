@@ -118,7 +118,7 @@ func SendHttpResponse(w http.ResponseWriter, code int,
 				return err
 			}
 
-			b.Close()
+			_ = b.Close()
 
 			_, err = w.Write(_body)
 
