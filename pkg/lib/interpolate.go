@@ -45,7 +45,7 @@ func Interpolate(input string, data interface{}) (string, error) {
 		return "", errors.Wrap(err, "Error executing template")
 	}
 
-	out.Flush()
+	_ = out.Flush()
 
 	return b.String(), nil
 }

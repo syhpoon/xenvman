@@ -24,4 +24,10 @@ function execute(tpl, params) {
   bcont.SetLabel("btest", params.blabel);
 
   bcont.MountData("mount", "/mounted", {"interpolate": true});
+
+  bcont.SetEnv("INTERPOLATE-ME",
+               fmt("{{.ExternalAddress}}:{{.SelfExposedPort %v}}",
+                   params.bport));
+
+  bcont.SetEnv("DONT-INTERPOLATE-ME", "WTF");
 }

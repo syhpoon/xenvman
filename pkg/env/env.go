@@ -96,7 +96,7 @@ func NewEnv(params Params) (env *Env, err error) {
 		if r := recover(); r != nil {
 			err = errors.Errorf("Error creating env %s: %s", env.id, r)
 
-			env.Terminate()
+			_ = env.Terminate()
 		}
 	}()
 
@@ -108,7 +108,7 @@ func NewEnv(params Params) (env *Env, err error) {
 	tpls, err := env.executeTemplates()
 
 	if err != nil {
-		env.Terminate()
+		_ = env.Terminate()
 		return nil, errors.WithStack(err)
 	} else {
 		env.tpls = tpls
@@ -140,7 +140,7 @@ func NewEnv(params Params) (env *Env, err error) {
 		params.ContEng, params.Ctx)
 
 	if err != nil {
-		env.Terminate()
+		_ = env.Terminate()
 
 		return nil, errors.WithStack(err)
 	}
@@ -149,7 +149,7 @@ func NewEnv(params Params) (env *Env, err error) {
 	netId, sub, err := params.ContEng.CreateNetwork(params.Ctx, id)
 
 	if err != nil {
-		env.Terminate()
+		_ = env.Terminate()
 
 		return nil, errors.Wrapf(err, "Error creating network")
 	}
@@ -159,19 +159,12 @@ func NewEnv(params Params) (env *Env, err error) {
 	ips, hosts, err := assignIps(sub, containers)
 
 	if err != nil {
-		env.Terminate()
+		_ = env.Terminate()
 
 		return nil, errors.WithStack(err)
 	}
 
 	ports := make(ports)
-
-	// Interpolate container files
-	if err = env.interpolate(containers); err != nil {
-		env.Terminate()
-
-		return nil, errors.WithStack(err)
-	}
 
 	// Now create containers
 	for i, cont := range containers {
@@ -190,7 +183,7 @@ func NewEnv(params Params) (env *Env, err error) {
 			port, err := params.PortRange.NextPort()
 
 			if err != nil {
-				env.Terminate()
+				_ = env.Terminate()
 
 				return nil, errors.WithStack(err)
 			}
@@ -199,6 +192,13 @@ func NewEnv(params Params) (env *Env, err error) {
 				contPort, port, cont.Hostname())
 
 			cports[contPort] = port
+		}
+
+		// Interpolate container files
+		if err = env.interpolate(cont, cports, containers); err != nil {
+			_ = env.Terminate()
+
+			return nil, errors.WithStack(err)
 		}
 
 		ports.add(cont, cports)
@@ -217,7 +217,7 @@ func NewEnv(params Params) (env *Env, err error) {
 			cont.Hostname(), imgName, cparams)
 
 		if err != nil {
-			env.Terminate()
+			_ = env.Terminate()
 
 			return nil, errors.Wrapf(err, "Error running container: %s", cont.Hostname())
 		}
@@ -229,7 +229,7 @@ func NewEnv(params Params) (env *Env, err error) {
 
 	// Perform readiness checks
 	if err := env.waitUntilReady(containers); err != nil {
-		env.Terminate()
+		_ = env.Terminate()
 
 		return nil, errors.Wrapf(err, "Error running readiness checks")
 	}
@@ -253,9 +253,11 @@ func (env *Env) waitUntilReady(containers []*tpl.Container) error {
 		for _, check := range cont.GetReadinessChecks() {
 			tplName, tplIdx := cont.Template()
 
-			intrp := &readinessInterpolator{
+			intrp := &interpolator{
 				externalAddress: env.params.ExportAddress,
-				ports:           env.ports[tplName][tplIdx][cont.Name()],
+				self:            cont,
+				selfPorts:       env.ports[tplName][tplIdx][cont.Name()],
+				containers:      containers,
 			}
 
 			if err := check.InterpolateParameters(intrp); err != nil {
@@ -311,38 +313,61 @@ func (env *Env) waitUntilReady(containers []*tpl.Container) error {
 	return nil
 }
 
-func (env *Env) interpolate(containers []*tpl.Container) error {
-	i := &interpolator{containers: containers}
+// Interpolate container:
+// * mount files
+// * environment variables
+func (env *Env) interpolate(cont *tpl.Container, ports map[uint16]uint16,
+	containers []*tpl.Container) error {
 
-	for _, cont := range containers {
-		for _, file := range cont.ToInterpolate() {
-			// Get file mode
-			info, err := os.Stat(file)
+	cont.SetCtx(nil)
 
-			if err != nil {
-				return errors.Wrapf(err, "Error getting file info %s", file)
-			}
+	i := &interpolator{
+		externalAddress: env.params.ExportAddress,
+		self:            cont,
+		selfPorts:       ports,
+		containers:      containers,
+	}
 
-			data, err := ioutil.ReadFile(file)
+	// Environ
+	for k, val := range cont.Environ() {
+		newVal, err := lib.Interpolate(string(val), i)
 
-			if err != nil {
-				return errors.Wrapf(err, "Error reading file %s", file)
-			}
-
-			res, err := lib.Interpolate(string(data), i)
-
-			if err != nil {
-				return errors.WithStack(err)
-			}
-
-			err = ioutil.WriteFile(file, []byte(res), info.Mode())
-
-			if err != nil {
-				return errors.Wrapf(err, "Error saving file %s", file)
-			}
-
-			envLog.Debugf("Interpolated: %s", file)
+		if err != nil {
+			envLog.Warningf("Error interpolating environment variable %s for %s: %s",
+				k, cont.Hostname(), err)
+		} else {
+			cont.SetEnv(k, newVal)
 		}
+	}
+
+	// Files
+	for _, file := range cont.ToInterpolate() {
+		// Get file mode
+		info, err := os.Stat(file)
+
+		if err != nil {
+			return errors.Wrapf(err, "Error getting file info %s", file)
+		}
+
+		data, err := ioutil.ReadFile(file)
+
+		if err != nil {
+			return errors.Wrapf(err, "Error reading file %s", file)
+		}
+
+		res, err := lib.Interpolate(string(data), i)
+
+		if err != nil {
+			return errors.WithStack(err)
+		}
+
+		err = ioutil.WriteFile(file, []byte(res), info.Mode())
+
+		if err != nil {
+			return errors.Wrapf(err, "Error saving file %s", file)
+		}
+
+		envLog.Debugf("Interpolated: %s", file)
 	}
 
 	return nil

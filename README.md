@@ -5,7 +5,6 @@
 Table of Contents
 =================
 
-   * [Table of Contents](#table-of-contents)
    * [Overview](#overview)
    * [Installation](#installation)
       * [Download release](#download-release)
@@ -56,17 +55,16 @@ Table of Contents
          * [Helper JS functions](#helper-js-functions)
             * [fmt(format :: string, args :: any...)](#fmtformat--string-args--any)
             * [type](#type)
-               * [type.EnsureString(arg)](#typeensurestringarg)
-               * [type.EnsureNumber(arg)](#typeensurenumberarg)
-               * [type.EnsureListOfStrings(arg)](#typeensurelistofstringsarg)
-               * [type.EnsureListOfNumbers(arg)](#typeensurelistofnumbersarg)
+               * [type.EnsureString(arg :: any)](#typeensurestringarg--any)
+               * [type.EnsureNumber(arg :: any)](#typeensurenumberarg--any)
+               * [type.EnsureListOfStrings(arg :: any)](#typeensurelistofstringsarg--any)
+               * [type.EnsureListOfNumbers(arg :: any)](#typeensurelistofnumbersarg--any)
                * [type.FromBase64(name :: string, value :: string)](#typefrombase64name--string-value--string)
-               * [type.IsArray(arg)](#typeisarrayarg)
-               * [type.IsDefined(arg)](#typeisdefinedarg)
+               * [type.IsArray(arg :: any)](#typeisarrayarg--any)
+               * [type.IsDefined(arg :: any)](#typeisdefinedarg--any)
       * [Interpolation](#interpolation)
          * [Workspace files interpolation](#workspace-files-interpolation)
-         * [Mounted files interpolation](#mounted-files-interpolation)
-         * [Readiness checks interpolation](#readiness-checks-interpolation)
+         * [Mounted files, readiness checks &amp; environ interpolation](#mounted-files-readiness-checks--environ-interpolation)
    * [HTTP API](#http-api)
       * [POST /api/v1/env](#post-apiv1env)
          * [Body](#body)
@@ -80,7 +78,7 @@ Table of Contents
       * [POST /api/v1/env/{id}/keepalive](#post-apiv1envidkeepalive)
    * [Clients](#clients)
       * [Golang](#golang)
-
+      
 # Overview
 
 `xenvman` is an extensible environment manager which is used to
@@ -558,10 +556,7 @@ TODO
 ### Workspace files interpolation
 TODO
 
-### Mounted files interpolation
-TODO
-
-### Readiness checks interpolation
+### Mounted files, readiness checks & environ interpolation
 TODO
 
 # HTTP API

@@ -117,9 +117,15 @@ func TestEnvOk(t *testing.T) {
 		fmt.Sprintf("%s.0.ok", fcontName), fimgName,
 		mock.Anything).Return("fcont-id", nil)
 
+	var bcontRunParams *conteng.RunContainerParams
+
 	ceng.On("RunContainer", mock.Anything,
 		fmt.Sprintf("%s.0.ok", bcontName), bimgName,
-		mock.Anything).Return("bcont-id", nil)
+		mock.Anything).Return("bcont-id", nil).Run(
+		func(args mock.Arguments) {
+			arg := args.Get(3).(conteng.RunContainerParams)
+			bcontRunParams = &arg
+		})
 
 	ceng.On("RemoveContainer", mock.Anything, mock.Anything).Return(nil)
 	ceng.On("RemoveImage", mock.Anything, mock.Anything).Return(nil)
@@ -249,6 +255,10 @@ func TestEnvOk(t *testing.T) {
 	require.Nil(t, err)
 	require.Empty(t, mountFiles)
 
+	require.NotNil(t, bcontRunParams)
+	require.Equal(t, bcontRunParams.Environ["INTERPOLATE-ME"], eb)
+	require.Equal(t, bcontRunParams.Environ["DONT-INTERPOLATE-ME"], "WTF")
+
 	// Mock assertion
 	ceng.AssertCalled(t, "FetchImage", mock.Anything, fimgName)
 	ceng.AssertCalled(t, "BuildImage", mock.Anything, bimgName, mock.Anything)
@@ -265,6 +275,8 @@ func TestEnvOk(t *testing.T) {
 	ceng.AssertCalled(t, "RemoveContainer", mock.Anything, "bcont-id")
 
 	ceng.AssertCalled(t, "RemoveImage", mock.Anything, bimgName)
+	ceng.AssertCalled(t, "RemoveNetwork", mock.Anything, mock.Anything)
+	ceng.AssertNumberOfCalls(t, "RemoveNetwork", 1)
 
 	//TODO: Readiness checks
 }

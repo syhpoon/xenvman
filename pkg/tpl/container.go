@@ -231,3 +231,7 @@ func (cont *Container) AddReadinessCheck(name string,
 	tplLog.Infof("[%s] Added readiness check for %s: %s",
 		cont.envId, cont.name, name)
 }
+
+func (cont *Container) SetCtx(ctx context.Context) {
+	cont.ctx = ctx
+}

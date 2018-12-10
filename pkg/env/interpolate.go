@@ -25,16 +25,42 @@
 package env
 
 import (
+	"fmt"
+
 	"github.com/syhpoon/xenvman/pkg/tpl"
 )
 
 type interpolator struct {
-	containers []*tpl.Container
+	externalAddress string
+	self            *tpl.Container
+	selfPorts       map[uint16]uint16
+	containers      []*tpl.Container
+}
+
+// Return a Container instance for the given template
+func (ip *interpolator) Self() *tpl.Container {
+	return ip.self
+}
+
+// Return an external address associated with xenvman api server
+func (ip *interpolator) ExternalAddress() string {
+	return ip.externalAddress
+}
+
+// Return an external port for the given internal one
+func (ip *interpolator) SelfExposedPort(port int) uint16 {
+	eport, ok := ip.selfPorts[uint16(port)]
+
+	if !ok {
+		panic(fmt.Sprintf("Port %d is not exposed for %s", port, ip.self.Name()))
+	}
+
+	return eport
 }
 
 // Return a list of containers which have one of the provided labels set
 // A label is considered set when it has any non-empty label value
-func (ip *interpolator) EnvContainersWithLabels(labels ...string) []*tpl.Container {
+func (ip *interpolator) ContainersWithLabels(labels ...string) []*tpl.Container {
 	var res []*tpl.Container
 
 	ls := map[string]bool{}
@@ -58,7 +84,7 @@ func (ip *interpolator) EnvContainersWithLabels(labels ...string) []*tpl.Contain
 // Return a container possessing a given label.
 // Empty value matches any label value
 // If more than one containers match, one of them is returned in arbitrary order
-func (ip *interpolator) EnvContainerWithLabel(label, value string) *tpl.Container {
+func (ip *interpolator) ContainerWithLabel(label, value string) *tpl.Container {
 	for _, c := range ip.containers {
 		for l, v := range c.Labels() {
 			if label == l {

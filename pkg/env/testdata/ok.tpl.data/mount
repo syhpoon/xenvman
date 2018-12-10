@@ -1,3 +1,3 @@
-{{- with .EnvContainerWithLabel "btest" "" -}}
+{{- with .ContainerWithLabel "btest" "" -}}
 {{.Hostname}}
 {{- end -}}

@@ -26,15 +26,13 @@ package env
 import (
 	"testing"
 
-	"github.com/syhpoon/xenvman/pkg/lib"
-
 	"github.com/stretchr/testify/require"
-
+	"github.com/syhpoon/xenvman/pkg/lib"
 	"github.com/syhpoon/xenvman/pkg/tpl"
 )
 
 func TestInterpolateEnvContainersWithLabels(t *testing.T) {
-	input := `{{- range .EnvContainersWithLabels "exposed" -}}
+	input := `{{- range .ContainersWithLabels "exposed" -}}
 name = "{{.GetLabel "exposed-service-name"}}"
 address = "{{.Hostname}}_{{.GetLabel "exposed-service-port" }}"
 {{- end -}}`
@@ -61,7 +59,7 @@ address = "c1.0.tpl_2000"`
 
 func TestInterpolateEnvContainerWithLabel(t *testing.T) {
 	input := `
-{{- with .EnvContainerWithLabel "auth" "" -}}
+{{- with .ContainerWithLabel "auth" "" -}}
 auth = "{{.Hostname}}:{{.GetLabel "auth-port"}}"
 {{- end -}}`
 
