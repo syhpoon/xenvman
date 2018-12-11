@@ -104,14 +104,20 @@ func TestEnvOk(t *testing.T) {
 	blabel := "wut-build"
 	bport := 6000
 
+	bimgMatcher := mock.MatchedBy(func(imgName string) bool {
+		return strings.Contains(imgName, bimgName)
+	})
+
 	ceng.On("CreateNetwork", mock.Anything, mock.Anything).
 		Return("net-id", "10.0.0.0/24", nil)
 	ceng.On("RemoveNetwork", mock.Anything, mock.AnythingOfType("string")).
 		Return(nil)
 
-	ceng.On("GetImagePorts", mock.Anything, bimgName).Return([]uint16(nil), nil)
+	ceng.On("GetImagePorts", mock.Anything,
+		bimgMatcher).Return([]uint16(nil), nil)
 	ceng.On("FetchImage", mock.Anything, fimgName).Return(nil)
-	ceng.On("BuildImage", mock.Anything, bimgName, mock.Anything).Return(nil)
+	ceng.On("BuildImage", mock.Anything, bimgMatcher,
+		mock.Anything).Return(nil)
 
 	ceng.On("RunContainer", mock.Anything,
 		fmt.Sprintf("%s.0.ok", fcontName), fimgName,
@@ -120,7 +126,7 @@ func TestEnvOk(t *testing.T) {
 	var bcontRunParams *conteng.RunContainerParams
 
 	ceng.On("RunContainer", mock.Anything,
-		fmt.Sprintf("%s.0.ok", bcontName), bimgName,
+		fmt.Sprintf("%s.0.ok", bcontName), bimgMatcher,
 		mock.Anything).Return("bcont-id", nil).Run(
 		func(args mock.Arguments) {
 			arg := args.Get(3).(conteng.RunContainerParams)
@@ -261,20 +267,21 @@ func TestEnvOk(t *testing.T) {
 
 	// Mock assertion
 	ceng.AssertCalled(t, "FetchImage", mock.Anything, fimgName)
-	ceng.AssertCalled(t, "BuildImage", mock.Anything, bimgName, mock.Anything)
+	ceng.AssertCalled(t, "BuildImage", mock.Anything, bimgMatcher,
+		mock.Anything)
 
 	ceng.AssertCalled(t, "RunContainer", mock.Anything,
 		fmt.Sprintf("%s.0.ok", fcontName), fimgName,
 		mock.Anything)
 
 	ceng.AssertCalled(t, "RunContainer", mock.Anything,
-		fmt.Sprintf("%s.0.ok", bcontName), bimgName,
+		fmt.Sprintf("%s.0.ok", bcontName), bimgMatcher,
 		mock.Anything)
 
 	ceng.AssertCalled(t, "RemoveContainer", mock.Anything, "fcont-id")
 	ceng.AssertCalled(t, "RemoveContainer", mock.Anything, "bcont-id")
 
-	ceng.AssertCalled(t, "RemoveImage", mock.Anything, bimgName)
+	ceng.AssertCalled(t, "RemoveImage", mock.Anything, bimgMatcher)
 	ceng.AssertCalled(t, "RemoveNetwork", mock.Anything, mock.Anything)
 	ceng.AssertNumberOfCalls(t, "RemoveNetwork", 1)
 

@@ -121,7 +121,7 @@ func (img *BuildImage) InterpolateWorkspaceFile(file string, data interface{}) {
 		panic(errors.Wrapf(err, "Error executing template from %s", file))
 	}
 
-	out.Flush()
+	_ = out.Flush()
 
 	if err := ioutil.WriteFile(path, b.Bytes(), info.Mode()); err != nil {
 		panic(errors.Wrapf(err, "Error saving template %s", path))
@@ -150,7 +150,7 @@ func (img *BuildImage) BuildContext() (io.Reader, error) {
 		return nil, errors.Wrapf(err, "Error creating archive: %s", img.wsDir)
 	}
 
-	out.Flush()
+	_ = out.Flush()
 
 	return bytes.NewReader(b.Bytes()), nil
 }

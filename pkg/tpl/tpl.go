@@ -82,7 +82,7 @@ func (tpl *Tpl) BuildImage(name string) *BuildImage {
 			envId:      tpl.envId,
 			tplName:    tpl.name,
 			tplIdx:     tpl.idx,
-			name:       name,
+			name:       imgName,
 			wsDir:      wsDir,
 			mountDir:   tpl.mountDir,
 			dataDir:    tpl.dataDir,
