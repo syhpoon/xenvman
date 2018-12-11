@@ -433,10 +433,6 @@ func (de *DockerEngine) getAuthForImage(imageName, file string) (string, error) 
 
 	srv := repoInfo.Index.Name
 
-	if repoInfo.Index.Secure {
-		srv = fmt.Sprintf("https://%s", repoInfo.Index.Name)
-	}
-
 	if credHelper, ok := conf.CredHelpers[repoInfo.Index.Name]; ok {
 		dockerLog.Infof("Using '%s' credential helper for %s", credHelper, srv)
 
@@ -469,9 +465,9 @@ func (de *DockerEngine) getAuthForImage(imageName, file string) (string, error) 
 				return "", errors.Wrap(err, "Error decoding auth entry")
 			}
 
-			split := strings.Split(string(auth), ":")
+			split := strings.SplitN(string(auth), ":", 2)
 
-			if len(split) != 2 {
+			if len(split) < 2 {
 				return "", errors.Errorf("Invalid auth entry format: %s", auth)
 			}
 
