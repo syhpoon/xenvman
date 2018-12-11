@@ -40,6 +40,7 @@ import (
 	"io/ioutil"
 
 	"github.com/docker/distribution/reference"
+	hclient "github.com/docker/docker-credential-helpers/client"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
@@ -394,6 +395,7 @@ func (de *DockerEngine) getSubNet() (string, error) {
 func (de *DockerEngine) getAuthForImage(imageName, file string) (string, error) {
 	type ConfigFile struct {
 		AuthConfigs map[string]types.AuthConfig `json:"auths"`
+		CredHelpers map[string]string           `json:"credHelpers"`
 	}
 
 	ref, err := reference.ParseNormalizedNamed(imageName)
@@ -429,35 +431,55 @@ func (de *DockerEngine) getAuthForImage(imageName, file string) (string, error) 
 		ServerAddress: repoInfo.Index.Name,
 	}
 
-	authConf, ok := conf.AuthConfigs[repoInfo.Index.Name]
+	srv := repoInfo.Index.Name
 
-	if !ok {
-		return "", nil
+	if repoInfo.Index.Secure {
+		srv = fmt.Sprintf("https://%s", repoInfo.Index.Name)
 	}
 
-	if authConf.Username != "" {
-		ac.Username = authConf.Username
-	}
+	if credHelper, ok := conf.CredHelpers[repoInfo.Index.Name]; ok {
+		dockerLog.Infof("Using '%s' credential helper for %s", credHelper, srv)
 
-	if authConf.Password != "" {
-		ac.Password = authConf.Password
-	}
+		prog := fmt.Sprintf("docker-credential-%s", credHelper)
+		p := hclient.NewShellProgramFunc(prog)
 
-	if ac.Username == "" {
-		auth, err := base64.StdEncoding.DecodeString(authConf.Auth)
+		creds, err := hclient.Get(p, srv)
 
 		if err != nil {
-			return "", errors.Wrap(err, "Error decoding auth entry")
+			return "", errors.Wrapf(err, "Error running %s", prog)
 		}
 
-		split := strings.Split(string(auth), ":")
+		ac.Username = creds.Username
+		ac.Password = creds.Secret
+	} else if authConf, ok := conf.AuthConfigs[srv]; ok {
+		dockerLog.Infof("Using auth section for %s", srv)
 
-		if len(split) != 2 {
-			return "", errors.Errorf("Invalid auth entry format: %s", auth)
+		if authConf.Username != "" {
+			ac.Username = authConf.Username
 		}
 
-		ac.Username = split[0]
-		ac.Password = split[1]
+		if authConf.Password != "" {
+			ac.Password = authConf.Password
+		}
+
+		if ac.Username == "" {
+			auth, err := base64.StdEncoding.DecodeString(authConf.Auth)
+
+			if err != nil {
+				return "", errors.Wrap(err, "Error decoding auth entry")
+			}
+
+			split := strings.Split(string(auth), ":")
+
+			if len(split) != 2 {
+				return "", errors.Errorf("Invalid auth entry format: %s", auth)
+			}
+
+			ac.Username = split[0]
+			ac.Password = split[1]
+		}
+	} else {
+		return "", nil
 	}
 
 	b, _ = json.Marshal(ac)

@@ -8,6 +8,7 @@ require (
 	github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973 // indirect
 	github.com/docker/distribution v2.7.0-rc.0+incompatible
 	github.com/docker/docker v0.7.3-0.20180823173620-0d9d86107d16
+	github.com/docker/docker-credential-helpers v0.6.1
 	github.com/docker/go-connections v0.4.1-0.20180821093606-97c2040d34df
 	github.com/docker/go-metrics v0.0.0-20180209012529-399ea8c73916 // indirect
 	github.com/docker/go-units v0.3.3 // indirect
