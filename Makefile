@@ -1,6 +1,6 @@
 BUILD=go build -ldflags "-s -w"
 PKG=github.com/syhpoon/xenvman/cmd
-VERSION=0.0.1
+VERSION=1.0.0
 
 .PHONY: fmt test vet deps build prepare default toc
 
