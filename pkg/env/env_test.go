@@ -28,6 +28,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -104,6 +105,12 @@ func TestEnvOk(t *testing.T) {
 	blabel := "wut-build"
 	bport := 6000
 
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.Nil(t, err)
+	defer listener.Close()
+
+	readinessPort := listener.Addr().(*net.TCPAddr).Port
+
 	bimgMatcher := mock.MatchedBy(func(imgName string) bool {
 		return strings.Contains(imgName, bimgName)
 	})
@@ -163,6 +170,7 @@ func TestEnvOk(t *testing.T) {
 						"bport":      bport,
 						"blabel":     blabel,
 						"binary":     binary,
+						"rport":      readinessPort,
 					},
 				},
 			},
@@ -263,7 +271,7 @@ func TestEnvOk(t *testing.T) {
 
 	require.NotNil(t, bcontRunParams)
 	require.Equal(t, bcontRunParams.Environ["INTERPOLATE-ME"], eb)
-	require.Equal(t, bcontRunParams.Environ["DONT-INTERPOLATE-ME"], "WTF")
+	require.Equal(t, bcontRunParams.Environ["DONT-INTERPOLATE-ME"], "WUT")
 
 	// Mock assertion
 	ceng.AssertCalled(t, "FetchImage", mock.Anything, fimgName)
@@ -284,6 +292,4 @@ func TestEnvOk(t *testing.T) {
 	ceng.AssertCalled(t, "RemoveImage", mock.Anything, bimgMatcher)
 	ceng.AssertCalled(t, "RemoveNetwork", mock.Anything, mock.Anything)
 	ceng.AssertNumberOfCalls(t, "RemoveNetwork", 1)
-
-	//TODO: Readiness checks
 }

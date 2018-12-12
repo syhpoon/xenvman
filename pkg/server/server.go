@@ -47,20 +47,21 @@ import (
 var serverLog = logger.GetLogger("xenvman.pkg.server.server")
 
 type Params struct {
-	Listener      net.Listener
-	WriteTimeout  time.Duration
-	ReadTimeout   time.Duration
-	ContEng       conteng.ContainerEngine
-	PortRange     *lib.PortRange
-	BaseTplDir    string
-	BaseWsDir     string
-	BaseMountDir  string
-	ExportAddress string
-	TLSCertFile   string
-	TLSKeyFile    string
-	AuthBackend   AuthBackend
-	Ctx           context.Context
-	CengCtx       context.Context
+	Listener         net.Listener
+	WriteTimeout     time.Duration
+	ReadTimeout      time.Duration
+	ContEng          conteng.ContainerEngine
+	PortRange        *lib.PortRange
+	BaseTplDir       string
+	BaseWsDir        string
+	BaseMountDir     string
+	ExportAddress    string
+	TLSCertFile      string
+	TLSKeyFile       string
+	AuthBackend      AuthBackend
+	Ctx              context.Context
+	CengCtx          context.Context
+	DefaultKeepalive time.Duration
 }
 
 func DefaultParams(ctx context.Context) Params {
@@ -214,14 +215,15 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	e, err := env.NewEnv(env.Params{
-		EnvDef:        &edef,
-		ContEng:       s.params.ContEng,
-		PortRange:     s.params.PortRange,
-		BaseTplDir:    s.params.BaseTplDir,
-		BaseWsDir:     s.params.BaseWsDir,
-		BaseMountDir:  s.params.BaseMountDir,
-		ExportAddress: s.params.ExportAddress,
-		Ctx:           s.params.CengCtx,
+		EnvDef:           &edef,
+		ContEng:          s.params.ContEng,
+		PortRange:        s.params.PortRange,
+		BaseTplDir:       s.params.BaseTplDir,
+		BaseWsDir:        s.params.BaseWsDir,
+		BaseMountDir:     s.params.BaseMountDir,
+		ExportAddress:    s.params.ExportAddress,
+		DefaultKeepAlive: def.Duration(s.params.DefaultKeepalive),
+		Ctx:              s.params.CengCtx,
 	})
 
 	if err != nil {

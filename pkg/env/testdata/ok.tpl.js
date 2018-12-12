@@ -29,5 +29,10 @@ function execute(tpl, params) {
                fmt("{{.ExternalAddress}}:{{.SelfExposedPort %v}}",
                    params.bport));
 
-  bcont.SetEnv("DONT-INTERPOLATE-ME", "WTF");
+  bcont.SetEnv("DONT-INTERPOLATE-ME", "WUT");
+
+  bcont.AddReadinessCheck("net", {
+    "protocol": "tcp",
+    "address": fmt('{{.ExternalAddress}}:%v', params.rport)
+  });
 }

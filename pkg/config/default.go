@@ -29,6 +29,7 @@ listen = ":9876"
 export_address = "localhost"
 ports_range = [20000, 30000]
 container_engine = "docker"
+keepalive = "2m"
 
 [tpl]
 base_dir = "."

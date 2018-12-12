@@ -65,14 +65,15 @@ type Env struct {
 }
 
 type Params struct {
-	EnvDef        *def.InputEnv
-	ContEng       conteng.ContainerEngine
-	PortRange     *lib.PortRange
-	BaseTplDir    string
-	BaseWsDir     string
-	BaseMountDir  string
-	ExportAddress string
-	Ctx           context.Context
+	EnvDef           *def.InputEnv
+	ContEng          conteng.ContainerEngine
+	PortRange        *lib.PortRange
+	BaseTplDir       string
+	BaseWsDir        string
+	BaseMountDir     string
+	ExportAddress    string
+	DefaultKeepAlive def.Duration
+	Ctx              context.Context
 }
 
 func NewEnv(params Params) (env *Env, err error) {
@@ -235,12 +236,15 @@ func NewEnv(params Params) (env *Env, err error) {
 	}
 
 	envLog.Infof("New env created: %s", id)
+	keepalive := params.DefaultKeepAlive
 
-	if params.EnvDef.Options.KeepAlive != 0 {
-		envLog.Infof("Keep alive for %s = %s", id,
-			params.EnvDef.Options.KeepAlive)
+	if params.EnvDef.Options != nil && params.EnvDef.Options.KeepAlive != 0 {
+		keepalive = params.EnvDef.Options.KeepAlive
+	}
 
-		go env.keepAliveWatchdog(params.Ctx)
+	if keepalive != 0 {
+		envLog.Infof("Keep alive for %s = %s", id, keepalive)
+		go env.keepAliveWatchdog(keepalive, params.Ctx)
 	}
 
 	return env, nil
@@ -605,8 +609,8 @@ func (env *Env) Id() string {
 	return env.id
 }
 
-func (env *Env) keepAliveWatchdog(ctx context.Context) {
-	d := time.Duration(env.ed.Options.KeepAlive)
+func (env *Env) keepAliveWatchdog(dur def.Duration, ctx context.Context) {
+	d := time.Duration(dur)
 
 	keepAliveTimer := time.NewTimer(d)
 

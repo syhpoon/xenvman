@@ -82,6 +82,7 @@ var runCmd = &cobra.Command{
 		params.BaseMountDir = config.GetString("tpl.mount_dir")
 		params.TLSCertFile = config.GetString("tls.cert")
 		params.TLSKeyFile = config.GetString("tls.key")
+		params.DefaultKeepalive = config.GetDuration("keepalive")
 		params.CengCtx = cengCtx
 
 		runLog.Infof("Base directory: %s", params.BaseTplDir)
@@ -124,7 +125,6 @@ var runCmd = &cobra.Command{
 		srv := server.New(params)
 
 		wg := &sync.WaitGroup{}
-
 		wg.Add(1)
 
 		errch := make(chan error)

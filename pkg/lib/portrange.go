@@ -83,7 +83,7 @@ func (pr *PortRange) NextPort() (Port, error) {
 		pr.next++
 
 		port := l.Addr().(*net.TCPAddr).Port
-		l.Close()
+		_ = l.Close()
 
 		return uint16(port), nil
 	}
