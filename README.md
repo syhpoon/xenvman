@@ -16,6 +16,7 @@ Table of Contents
          * [auth_basic [""]](#auth_basic-)
          * [container_engine (XENVMAN_CONTAINER_ENGINE) ["docker"]](#container_engine-xenvman_container_engine-docker)
          * [export_address (XENVMAN_EXPORT_ADDRESS) ["localhost"]](#export_address-xenvman_export_address-localhost)
+         * [keepalive (XENVMAN_KEEPALIVE) ["2m"]](#keepalive-xenvman_keepalive-2m)
          * [listen (XENVMAN_LISTEN) [":9876"]](#listen-xenvman_listen-9876)
          * [ports_range (XENVMAN_PORTS_RANGE) [[20000, 30000]]](#ports_range-xenvman_ports_range-20000-30000)
          * [tpl.base_dir (XENVMAN_TPL_BASE_DIR) [""]](#tplbase_dir-xenvman_tpl_base_dir-)
@@ -76,6 +77,7 @@ Table of Contents
       * [DELETE /api/v1/env/{id}](#delete-apiv1envid)
          * [Query parameters](#query-parameters)
       * [POST /api/v1/env/{id}/keepalive](#post-apiv1envidkeepalive)
+   * [Dynamic discovery](#dynamic-discovery)
    * [Clients](#clients)
       * [Golang](#golang)
       
