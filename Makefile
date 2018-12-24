@@ -1,6 +1,6 @@
-BUILD=go build -ldflags "-s -w"
+BUILD=CGO_ENABLED=0 go build -ldflags "-s -w"
 PKG=github.com/syhpoon/xenvman/cmd
-VERSION=1.0.0
+VERSION=1.0.1
 
 .PHONY: fmt test vet deps build prepare default toc
 

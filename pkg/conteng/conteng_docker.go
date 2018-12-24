@@ -161,10 +161,18 @@ func (de *DockerEngine) RunContainer(ctx context.Context, name, tag string,
 		})
 	}
 
+	var dns []string
+
+	if params.DiscoverDNS != "" {
+		dns = append(dns, params.DiscoverDNS)
+	}
+
 	hostCont := &container.HostConfig{
 		NetworkMode:   container.NetworkMode(params.NetworkId),
 		ExtraHosts:    hosts,
 		AutoRemove:    false,
+		DNS:           dns,
+		DNSSearch:     []string{"xenv"},
 		RestartPolicy: container.RestartPolicy{Name: "on-failure"},
 		PortBindings:  bindings,
 		Mounts:        mounts,
@@ -264,22 +272,28 @@ func (de *DockerEngine) RemoveImage(ctx context.Context, imgName string) error {
 }
 
 func (de *DockerEngine) FetchImage(ctx context.Context, imgName string) error {
-	auth, err := de.getAuthForImage(imgName, "")
+	out, err := de.cl.ImagePull(ctx, imgName, types.ImagePullOptions{})
+	var auth string
 
 	if err != nil {
-		return err
-	}
+		// Retry with auth
+		auth, err = de.getAuthForImage(imgName)
 
-	out, err := de.cl.ImagePull(ctx, imgName, types.ImagePullOptions{
-		RegistryAuth: auth,
-	})
+		if err != nil {
+			return err
+		}
+
+		out, err = de.cl.ImagePull(ctx, imgName, types.ImagePullOptions{
+			RegistryAuth: auth,
+		})
+	}
 
 	if err == nil {
 		dockerLog.Debugf("Image fetched: %s", imgName)
 	}
 
 	if out != nil {
-		io.Copy(ioutil.Discard, out)
+		_, _ = io.Copy(ioutil.Discard, out)
 	}
 
 	return err
@@ -392,7 +406,7 @@ func (de *DockerEngine) getSubNet() (string, error) {
 }
 
 // TODO: Pretty naive implementation and will likely not work in all the cases
-func (de *DockerEngine) getAuthForImage(imageName, file string) (string, error) {
+func (de *DockerEngine) getAuthForImage(imageName string) (string, error) {
 	type ConfigFile struct {
 		AuthConfigs map[string]types.AuthConfig `json:"auths"`
 		CredHelpers map[string]string           `json:"credHelpers"`
@@ -409,9 +423,7 @@ func (de *DockerEngine) getAuthForImage(imageName, file string) (string, error) 
 		return "", errors.Wrapf(err, "Error parsing repository %s", imageName)
 	}
 
-	if file == "" {
-		file = filepath.Join(os.Getenv("HOME"), ".docker", "config.json")
-	}
+	file := filepath.Join(os.Getenv("HOME"), ".docker", "config.json")
 
 	b, err := ioutil.ReadFile(file)
 
@@ -427,58 +439,75 @@ func (de *DockerEngine) getAuthForImage(imageName, file string) (string, error) 
 		return "", errors.Wrapf(err, "Error parsing docker config %s", file)
 	}
 
-	ac := &types.AuthConfig{
-		ServerAddress: repoInfo.Index.Name,
+	srv := repoInfo.Index.Name
+	ac := &types.AuthConfig{}
+
+	var variants []string
+
+	if srv == "docker.io" || srv == "index.docker.io" {
+		variants = []string{"https://docker.io", "https://index.docker.io/v1/"}
+	} else {
+		variants = []string{srv}
 	}
 
-	srv := repoInfo.Index.Name
+	var finalErr error
 
-	if credHelper, ok := conf.CredHelpers[repoInfo.Index.Name]; ok {
-		dockerLog.Infof("Using '%s' credential helper for %s", credHelper, srv)
+	for _, host := range variants {
+		if credHelper, ok := conf.CredHelpers[host]; ok {
+			dockerLog.Infof("Using '%s' credential helper for %s", credHelper, host)
 
-		prog := fmt.Sprintf("docker-credential-%s", credHelper)
-		p := hclient.NewShellProgramFunc(prog)
+			prog := fmt.Sprintf("docker-credential-%s", credHelper)
+			p := hclient.NewShellProgramFunc(prog)
 
-		creds, err := hclient.Get(p, srv)
-
-		if err != nil {
-			return "", errors.Wrapf(err, "Error running %s", prog)
-		}
-
-		ac.Username = creds.Username
-		ac.Password = creds.Secret
-	} else if authConf, ok := conf.AuthConfigs[srv]; ok {
-		dockerLog.Infof("Using auth section for %s", srv)
-
-		if authConf.Username != "" {
-			ac.Username = authConf.Username
-		}
-
-		if authConf.Password != "" {
-			ac.Password = authConf.Password
-		}
-
-		if ac.Username == "" {
-			auth, err := base64.StdEncoding.DecodeString(authConf.Auth)
+			creds, err := hclient.Get(p, host)
 
 			if err != nil {
-				return "", errors.Wrap(err, "Error decoding auth entry")
+				finalErr = errors.Wrapf(err, "Error running %s", prog)
+
+				continue
 			}
 
-			split := strings.SplitN(string(auth), ":", 2)
+			ac.Username = creds.Username
+			ac.Password = creds.Secret
+		} else if authConf, ok := conf.AuthConfigs[host]; ok {
+			dockerLog.Infof("Using auth section for %s", host)
 
-			if len(split) < 2 {
-				return "", errors.Errorf("Invalid auth entry format: %s", auth)
+			if authConf.Username != "" {
+				ac.Username = authConf.Username
 			}
 
-			ac.Username = split[0]
-			ac.Password = split[1]
+			if authConf.Password != "" {
+				ac.Password = authConf.Password
+			}
+
+			if ac.Username == "" {
+				auth, err := base64.StdEncoding.DecodeString(authConf.Auth)
+
+				if err != nil {
+					finalErr = errors.Wrap(err, "Error decoding auth entry")
+
+					continue
+				}
+
+				split := strings.SplitN(string(auth), ":", 2)
+
+				if len(split) < 2 {
+					finalErr = errors.Errorf("Invalid auth entry format: %s", auth)
+					continue
+				}
+
+				ac.Username = split[0]
+				ac.Password = split[1]
+			}
+		} else {
+			continue
 		}
-	} else {
-		return "", nil
+
+		ac.ServerAddress = host
+		b, _ = json.Marshal(ac)
+
+		return base64.StdEncoding.EncodeToString(b), nil
 	}
 
-	b, _ = json.Marshal(ac)
-
-	return base64.StdEncoding.EncodeToString(b), nil
+	return "", finalErr
 }

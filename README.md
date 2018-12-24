@@ -180,6 +180,10 @@ Currently only `docker` is supported.
 
 The external address to expose to clients.
 
+### keepalive (XENVMAN_KEEPALIVE) ["2m"]
+
+Default environment keepalive
+
 ### listen (XENVMAN_LISTEN) [":9876"]
 
 IP:port to listen on.
@@ -600,7 +604,11 @@ Create a new environment.
 ```
 {
   // Environment keep alive setting
-  "keep_alive" :: string
+  "keep_alive" :: string,
+  
+  // Whether to disable dynamic discovery DNS agent and revert back to static
+  // hostnames
+  "disable_discovery" :: bool
 }
 ```
 
@@ -647,6 +655,9 @@ Keep alive an environment.
 
 A client needs to periodicall call this endpoint in order to keep
 the environemnt running.
+
+# Dynamic discovery
+TODO
 
 # Clients
 

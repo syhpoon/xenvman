@@ -127,13 +127,13 @@ func TestEnvOk(t *testing.T) {
 		mock.Anything).Return(nil)
 
 	ceng.On("RunContainer", mock.Anything,
-		fmt.Sprintf("%s.0.ok", fcontName), fimgName,
+		fmt.Sprintf("%s.0.ok.xenv", fcontName), fimgName,
 		mock.Anything).Return("fcont-id", nil)
 
 	var bcontRunParams *conteng.RunContainerParams
 
 	ceng.On("RunContainer", mock.Anything,
-		fmt.Sprintf("%s.0.ok", bcontName), bimgMatcher,
+		fmt.Sprintf("%s.0.ok.xenv", bcontName), bimgMatcher,
 		mock.Anything).Return("bcont-id", nil).Run(
 		func(args mock.Arguments) {
 			arg := args.Get(3).(conteng.RunContainerParams)
@@ -174,7 +174,9 @@ func TestEnvOk(t *testing.T) {
 					},
 				},
 			},
-			Options: &def.EnvOptions{},
+			Options: &def.EnvOptions{
+				DisableDiscovery: true,
+			},
 		},
 		ContEng:       ceng,
 		BaseTplDir:    filepath.Join(cwd, "./testdata"),
@@ -232,7 +234,7 @@ func TestEnvOk(t *testing.T) {
 	bytes, err = ioutil.ReadFile(mountF[0])
 	require.Nil(t, err)
 	require.Equal(t, string(bytes),
-		fmt.Sprintf("%s.0.%s", bcontName, tplName))
+		fmt.Sprintf("%s.0.%s.xenv", bcontName, tplName))
 
 	env.KeepAlive()
 
@@ -279,11 +281,11 @@ func TestEnvOk(t *testing.T) {
 		mock.Anything)
 
 	ceng.AssertCalled(t, "RunContainer", mock.Anything,
-		fmt.Sprintf("%s.0.ok", fcontName), fimgName,
+		fmt.Sprintf("%s.0.ok.xenv", fcontName), fimgName,
 		mock.Anything)
 
 	ceng.AssertCalled(t, "RunContainer", mock.Anything,
-		fmt.Sprintf("%s.0.ok", bcontName), bimgMatcher,
+		fmt.Sprintf("%s.0.ok.xenv", bcontName), bimgMatcher,
 		mock.Anything)
 
 	ceng.AssertCalled(t, "RemoveContainer", mock.Anything, "fcont-id")

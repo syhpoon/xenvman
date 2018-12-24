@@ -58,7 +58,7 @@ func initConfig() {
 	err := config.InitConfig(flagConfig)
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error in configuration: %s\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Error in configuration: %s\n", err)
 		os.Exit(1)
 	}
 }
@@ -68,7 +68,7 @@ func initLogger() {
 		err := logger.ConfigureLoggers(config.GetString("log.config"))
 
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to initialize logger: %s\n",
+			_, _ = fmt.Fprintf(os.Stderr, "Unable to initialize logger: %s\n",
 				err.Error())
 
 			os.Exit(1)
@@ -77,6 +77,7 @@ func initLogger() {
 }
 
 func init() {
+	RootCmd.AddCommand(discCmd)
 	RootCmd.AddCommand(runCmd)
 	RootCmd.AddCommand(versionCmd)
 }

@@ -43,6 +43,7 @@ type Image struct {
 	wsDir      string
 	mountDir   string
 	containers map[string]*Container
+	fs         *Fs
 	ctx        context.Context
 }
 
@@ -63,6 +64,7 @@ func (img *Image) NewContainer(name string) *Container {
 		dataDir:           img.dataDir,
 		labels:            map[string]string{},
 		needInterpolating: map[string]bool{},
+		fs:                img.fs,
 		ctx:               img.ctx,
 	}
 

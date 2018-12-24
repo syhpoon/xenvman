@@ -22,33 +22,13 @@
  SOFTWARE.
 */
 
-package def
+package tpl
 
-import (
-	"fmt"
-)
+import "os"
 
-type EnvOptions struct {
-	KeepAlive        Duration `json:"keep_alive,omitempty"`
-	DisableDiscovery bool     `json:"disable_discovery,omitempty"`
-}
-
-type InputEnv struct {
-	// Environment name
-	Name string `json:"name"`
-	// Environment description
-	Description string `json:"description,omitempty"`
-	// Templates to use
-	Templates []*Tpl `json:"templates,omitempty"`
-
-	// Additional env options
-	Options *EnvOptions `json:"options"`
-}
-
-func (ed *InputEnv) Validate() error {
-	if ed.Name == "" {
-		return fmt.Errorf("Env name is empty")
-	}
-
-	return nil
+// A simple filesystem abstraction layer
+type Fs struct {
+	ReadFile func(string) ([]byte, error)
+	Stat     func(name string) (os.FileInfo, error)
+	Lstat    func(name string) (os.FileInfo, error)
 }

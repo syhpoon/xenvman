@@ -27,6 +27,8 @@ package tpl
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"io/ioutil"
 	"path/filepath"
 
@@ -46,6 +48,7 @@ type ExecuteParams struct {
 	WsDir     string
 	MountDir  string
 	TplParams def.TplParams
+	Fs        *Fs
 	Ctx       context.Context
 }
 
@@ -61,6 +64,14 @@ func Execute(envId, tplName string, tplIndex int, params ExecuteParams) (tpl *Tp
 		}
 	}()
 
+	if params.Fs == nil {
+		params.Fs = &Fs{
+			ReadFile: ioutil.ReadFile,
+			Stat:     os.Stat,
+			Lstat:    os.Lstat,
+		}
+	}
+
 	vm := otto.New()
 
 	// Setup library
@@ -74,7 +85,7 @@ func Execute(envId, tplName string, tplIndex int, params ExecuteParams) (tpl *Tp
 
 	tplLog.Debugf("Executing tpl from %s (%s)", tplName, jsFile)
 
-	bytes, err := ioutil.ReadFile(jsFile)
+	bytes, err := params.Fs.ReadFile(jsFile)
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "Error reading tpl %s", tplName)
@@ -99,6 +110,7 @@ func Execute(envId, tplName string, tplIndex int, params ExecuteParams) (tpl *Tp
 		dataDir:  dataDir,
 		wsDir:    wsDir,
 		mountDir: mountDir,
+		fs:       params.Fs,
 		ctx:      params.Ctx,
 	}
 

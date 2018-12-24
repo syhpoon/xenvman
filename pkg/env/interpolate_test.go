@@ -38,7 +38,7 @@ address = "{{.Hostname}}_{{.GetLabel "exposed-service-port" }}"
 {{- end -}}`
 
 	res := `name = "c1"
-address = "c1.0.tpl_2000"`
+address = "c1.0.tpl.xenv_2000"`
 
 	c1 := tpl.NewContainer("c1", "tpl", 0)
 	c1.SetLabel("exposed", "true")
@@ -49,7 +49,10 @@ address = "c1.0.tpl_2000"`
 
 	conts := []*tpl.Container{c1, c2}
 
-	ip := &interpolator{containers: conts}
+	ip := &interpolator{
+		containers: conts,
+		ports:      make(ports),
+	}
 
 	out, err := lib.Interpolate(input, ip)
 
@@ -63,7 +66,7 @@ func TestInterpolateEnvContainerWithLabel(t *testing.T) {
 auth = "{{.Hostname}}:{{.GetLabel "auth-port"}}"
 {{- end -}}`
 
-	res := `auth = "c1.0.tpl:2000"`
+	res := `auth = "c1.0.tpl.xenv:2000"`
 
 	c1 := tpl.NewContainer("c1", "tpl", 0)
 	c1.SetLabel("auth", "true")
@@ -73,7 +76,10 @@ auth = "{{.Hostname}}:{{.GetLabel "auth-port"}}"
 
 	conts := []*tpl.Container{c1, c2}
 
-	ip := &interpolator{containers: conts}
+	ip := &interpolator{
+		containers: conts,
+		ports:      make(ports),
+	}
 
 	out, err := lib.Interpolate(input, ip)
 

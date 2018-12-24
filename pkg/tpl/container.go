@@ -27,10 +27,11 @@ package tpl
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strings"
+
+	"io/ioutil"
+	"path/filepath"
 
 	"github.com/pkg/errors"
 	"github.com/syhpoon/xenvman/pkg/conteng"
@@ -39,6 +40,8 @@ import (
 )
 
 var contLog = logger.GetLogger("xenvman.pkg.tpl.container")
+
+const serviceDomain = "xenv"
 
 type Container struct {
 	envId             string
@@ -55,6 +58,7 @@ type Container struct {
 	labels            map[string]string
 	needInterpolating map[string]bool
 	readinessChecks   []ReadinessCheck
+	fs                *Fs
 	ctx               context.Context
 }
 
@@ -164,7 +168,7 @@ func (cont *Container) MountData(dataFile, contFile string, opts Opts) {
 	verifyPath(dataPath, cont.dataDir)
 	verifyPath(mountPath, cont.mountDir)
 
-	if _, err := os.Stat(dataPath); os.IsNotExist(err) {
+	if _, err := cont.fs.Stat(dataPath); os.IsNotExist(err) {
 		if _, ok := opts["skip-if-nonexistent"]; ok {
 			contLog.Infof(
 				"[%s:%s] Cannot mount %s as it doesn't exist. Skipping",
@@ -178,7 +182,7 @@ func (cont *Container) MountData(dataFile, contFile string, opts Opts) {
 
 	checkCancelled(cont.ctx)
 
-	if err := Copy(dataPath, mountPath); err != nil {
+	if err := Copy(dataPath, mountPath, cont.fs); err != nil {
 		panic(errors.Wrapf(err, "Error copying data to mount dir"))
 	}
 
@@ -207,7 +211,8 @@ func (cont *Container) Template() (string, int) {
 func (cont *Container) Hostname() string {
 	tplName := strings.Replace(cont.tplName, "/", "-", -1)
 
-	return fmt.Sprintf("%s.%d.%s", cont.name, cont.tplIdx, tplName)
+	return fmt.Sprintf("%s.%d.%s.%s", cont.name, cont.tplIdx,
+		tplName, serviceDomain)
 }
 
 func (cont *Container) GetReadinessChecks() []ReadinessCheck {

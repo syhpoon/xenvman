@@ -83,10 +83,6 @@ type Server struct {
 func New(params Params) *Server {
 	router := mux.NewRouter()
 
-	if params.AuthBackend != nil {
-
-	}
-
 	return &Server{
 		router: router,
 		server: http.Server{

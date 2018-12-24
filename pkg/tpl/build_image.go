@@ -50,7 +50,7 @@ func (img *Image) CopyDataToWorkspace(objs ...string) {
 			imgLog.Debugf("Copying everything from %s to %s for %s",
 				img.dataDir, img.wsDir, img.envId)
 
-			if err := Copy(img.dataDir, img.wsDir); err != nil {
+			if err := Copy(img.dataDir, img.wsDir, img.fs); err != nil {
 				panic(errors.Wrapf(err, "Error copying data to workspace"))
 			}
 
@@ -64,7 +64,7 @@ func (img *Image) CopyDataToWorkspace(objs ...string) {
 
 			imgLog.Debugf("Copying %s to %s for %s", dataPath, wsPath, img.envId)
 
-			if err := Copy(dataPath, wsPath); err != nil {
+			if err := Copy(dataPath, wsPath, img.fs); err != nil {
 				panic(errors.Wrapf(err, "Error copying data to workspace"))
 			}
 		}

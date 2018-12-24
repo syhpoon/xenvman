@@ -38,13 +38,14 @@ type ContainerFileMount struct {
 }
 
 type RunContainerParams struct {
-	NetworkId  NetworkId
-	IP         string
-	Hosts      map[string]string // hostname -> IP
-	Ports      map[uint16]uint16 // container port -> host port
-	Environ    map[string]string
-	Cmd        []string
-	FileMounts []*ContainerFileMount
+	NetworkId   NetworkId
+	IP          string
+	DiscoverDNS string
+	Hosts       map[string]string // hostname -> IP
+	Ports       map[uint16]uint16 // container port -> host port
+	Environ     map[string]string
+	Cmd         []string
+	FileMounts  []*ContainerFileMount
 }
 
 type ContainerEngine interface {

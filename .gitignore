@@ -10,6 +10,7 @@ cmd/xenvman
 repos/
 etc/xenvman.my.toml
 xenvman
+docker/xenvman
 
 tmp/
 CALL.json

@@ -22,33 +22,53 @@
  SOFTWARE.
 */
 
-package def
+package env
 
 import (
 	"fmt"
+
+	"github.com/syhpoon/xenvman/pkg/tpl"
 )
 
-type EnvOptions struct {
-	KeepAlive        Duration `json:"keep_alive,omitempty"`
-	DisableDiscovery bool     `json:"disable_discovery,omitempty"`
+type container struct {
+	ports map[uint16]uint16
+	ip    string
+	cont  *tpl.Container
 }
 
-type InputEnv struct {
-	// Environment name
-	Name string `json:"name"`
-	// Environment description
-	Description string `json:"description,omitempty"`
-	// Templates to use
-	Templates []*Tpl `json:"templates,omitempty"`
+func container2interpolate(cont *tpl.Container,
+	ports map[uint16]uint16, ip string) *container {
 
-	// Additional env options
-	Options *EnvOptions `json:"options"`
+	return &container{
+		cont:  cont,
+		ports: ports,
+		ip:    ip,
+	}
 }
 
-func (ed *InputEnv) Validate() error {
-	if ed.Name == "" {
-		return fmt.Errorf("Env name is empty")
+func (cont *container) IP() string {
+	return cont.ip
+}
+
+func (cont *container) Hostname() string {
+	return cont.cont.Hostname()
+}
+
+func (cont *container) Name() string {
+	return cont.cont.Name()
+}
+
+func (cont *container) GetLabel(label string) string {
+	return cont.cont.GetLabel(label)
+}
+
+// Return an external port for the given internal one
+func (cont *container) ExposedPort(port int) uint16 {
+	eport, ok := cont.ports[uint16(port)]
+
+	if !ok {
+		panic(fmt.Sprintf("Port %d is not exposed for %s", port, cont.Name()))
 	}
 
-	return nil
+	return eport
 }

@@ -25,20 +25,19 @@
 package env
 
 import (
-	"fmt"
-
 	"github.com/syhpoon/xenvman/pkg/tpl"
 )
 
 type interpolator struct {
 	externalAddress string
-	self            *tpl.Container
-	selfPorts       map[uint16]uint16
+	self            *container
 	containers      []*tpl.Container
+	ports           ports
+	ips             map[string]string
 }
 
 // Return a Container instance for the given template
-func (ip *interpolator) Self() *tpl.Container {
+func (ip *interpolator) Self() *container {
 	return ip.self
 }
 
@@ -49,19 +48,13 @@ func (ip *interpolator) ExternalAddress() string {
 
 // Return an external port for the given internal one
 func (ip *interpolator) SelfExposedPort(port int) uint16 {
-	eport, ok := ip.selfPorts[uint16(port)]
-
-	if !ok {
-		panic(fmt.Sprintf("Port %d is not exposed for %s", port, ip.self.Name()))
-	}
-
-	return eport
+	return ip.self.ExposedPort(port)
 }
 
 // Return a list of containers which have one of the provided labels set
 // A label is considered set when it has any non-empty label value
-func (ip *interpolator) ContainersWithLabels(labels ...string) []*tpl.Container {
-	var res []*tpl.Container
+func (ip *interpolator) ContainersWithLabels(labels ...string) []*container {
+	var res []*container
 
 	ls := map[string]bool{}
 
@@ -70,9 +63,19 @@ func (ip *interpolator) ContainersWithLabels(labels ...string) []*tpl.Container 
 	}
 
 	for _, c := range ip.containers {
+		tplName, tplIdx := c.Template()
+		cPorts := map[uint16]uint16{}
+
+		if tplPorts, ok := ip.ports[tplName]; ok && len(tplPorts) > tplIdx {
+			if p, ok := tplPorts[tplIdx][c.Name()]; ok {
+				cPorts = p
+			}
+		}
+
 		for label := range c.Labels() {
 			if ls[label] {
-				res = append(res, c)
+				res = append(res, container2interpolate(c, cPorts,
+					ip.ips[c.Hostname()]))
 				break
 			}
 		}
@@ -84,16 +87,46 @@ func (ip *interpolator) ContainersWithLabels(labels ...string) []*tpl.Container 
 // Return a container possessing a given label.
 // Empty value matches any label value
 // If more than one containers match, one of them is returned in arbitrary order
-func (ip *interpolator) ContainerWithLabel(label, value string) *tpl.Container {
+func (ip *interpolator) ContainerWithLabel(label, value string) *container {
 	for _, c := range ip.containers {
 		for l, v := range c.Labels() {
 			if label == l {
 				if value == "" || value == v {
-					return c
+					tplName, tplIdx := c.Template()
+
+					cPorts := map[uint16]uint16{}
+
+					if tplPorts, ok := ip.ports[tplName]; ok && len(tplPorts) > tplIdx {
+						if p, ok := tplPorts[tplIdx][c.Name()]; ok {
+							cPorts = p
+						}
+					}
+
+					return container2interpolate(c, cPorts, ip.ips[c.Hostname()])
 				}
 			}
 		}
 	}
 
 	return nil
+}
+
+// Return a list of all environment containers
+func (ip *interpolator) AllContainers() []*container {
+	var res []*container
+
+	for _, c := range ip.containers {
+		tplName, tplIdx := c.Template()
+
+		var cPorts map[uint16]uint16
+
+		if ports, ok := ip.ports[tplName]; ok && len(ports) > 0 {
+			cPorts = ip.ports[tplName][tplIdx][c.Name()]
+		}
+
+		res = append(res, container2interpolate(c, cPorts,
+			ip.ips[c.Hostname()]))
+	}
+
+	return res
 }

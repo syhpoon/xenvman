@@ -1,0 +1,6 @@
+{
+   {{ range $idx, $cont := .AllContainers }}
+   {{ if $idx}},{{end}}
+     "{{$cont.Hostname}}.": "{{$cont.IP}}"
+   {{ end }}
+}

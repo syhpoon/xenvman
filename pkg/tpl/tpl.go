@@ -58,6 +58,7 @@ type Tpl struct {
 	dataDir  string
 	wsDir    string
 	mountDir string
+	fs       *Fs
 
 	ctx context.Context
 	sync.RWMutex
@@ -87,6 +88,7 @@ func (tpl *Tpl) BuildImage(name string) *BuildImage {
 			mountDir:   tpl.mountDir,
 			dataDir:    tpl.dataDir,
 			containers: map[string]*Container{},
+			fs:         tpl.fs,
 			ctx:        tpl.ctx,
 		},
 	}
@@ -123,6 +125,7 @@ func (tpl *Tpl) FetchImage(imgName string) *FetchImage {
 			mountDir:   tpl.mountDir,
 			dataDir:    tpl.dataDir,
 			containers: map[string]*Container{},
+			fs:         tpl.fs,
 			ctx:        tpl.ctx,
 		},
 	}

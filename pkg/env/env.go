@@ -22,6 +22,8 @@
  SOFTWARE.
 */
 
+//go:generate go-bindata -pkg env -o tpl.bindata.go internal-tpl/...
+
 package env
 
 import (
@@ -52,6 +54,7 @@ type Env struct {
 	wsDir         string
 	mountDir      string
 	ports         ports
+	ips           map[string]string // Hostname -> IP
 	ed            *def.InputEnv
 	ceng          conteng.ContainerEngine
 	netId         string
@@ -89,6 +92,7 @@ func NewEnv(params Params) (env *Env, err error) {
 		keepAliveChan: make(chan bool, 1),
 		params:        params,
 		builtImages:   map[string]struct{}{},
+		ips:           map[string]string{},
 	}
 
 	defer func() {
@@ -165,20 +169,31 @@ func NewEnv(params Params) (env *Env, err error) {
 		return nil, errors.WithStack(err)
 	}
 
+	env.ips = hosts
+
 	ports := make(ports)
 
-	// Now create containers
-	for i, cont := range containers {
+	// Expose all the ports
+	cports := map[string]map[uint16]uint16{}
+
+	discoveryHostname := ""
+
+	for _, cont := range containers {
+		if cont.GetLabel("xenv-discovery") == "true" {
+			discoveryHostname = cont.Hostname()
+		}
+
 		imgName := cont.Image()
 
-		// Expose ports
 		portsToExpose := cont.Ports()
 
 		if len(portsToExpose) == 0 {
 			portsToExpose = imgPorts[imgName]
 		}
 
-		cports := map[uint16]uint16{}
+		if _, ok := cports[cont.Hostname()]; !ok {
+			cports[cont.Hostname()] = map[uint16]uint16{}
+		}
 
 		for _, contPort := range portsToExpose {
 			port, err := params.PortRange.NextPort()
@@ -192,35 +207,50 @@ func NewEnv(params Params) (env *Env, err error) {
 			envLog.Debugf("Exposing internal port %d as %d for %s",
 				contPort, port, cont.Hostname())
 
-			cports[contPort] = port
+			cports[cont.Hostname()][contPort] = port
 		}
 
+		ports.add(cont, cports[cont.Hostname()])
+	}
+
+	// Now create containers
+	for i, cont := range containers {
 		// Interpolate container files
-		if err = env.interpolate(cont, cports, containers); err != nil {
+		if err = env.interpolate(cont, cports[cont.Hostname()],
+			containers); err != nil {
+
 			_ = env.Terminate()
 
 			return nil, errors.WithStack(err)
 		}
 
-		ports.add(cont, cports)
-
 		cparams := conteng.RunContainerParams{
 			NetworkId:  netId,
 			IP:         ips[i],
-			Hosts:      hosts,
-			Ports:      cports,
+			Ports:      cports[cont.Hostname()],
 			Environ:    cont.Environ(),
 			Cmd:        cont.Cmd(),
 			FileMounts: cont.Mounts(),
 		}
 
+		if !env.params.EnvDef.Options.DisableDiscovery {
+			cparams.DiscoverDNS = env.ips[discoveryHostname]
+
+			envLog.Infof("[%s] Using discovery DNS: %s", id, cparams.DiscoverDNS)
+		} else {
+			cparams.Hosts = hosts
+
+			envLog.Infof("[%s] Using static hosts", id)
+		}
+
 		cid, err := params.ContEng.RunContainer(params.Ctx,
-			cont.Hostname(), imgName, cparams)
+			cont.Hostname(), cont.Image(), cparams)
 
 		if err != nil {
 			_ = env.Terminate()
 
-			return nil, errors.Wrapf(err, "Error running container: %s", cont.Hostname())
+			return nil, errors.Wrapf(err, "Error running container: %s",
+				cont.Hostname())
 		}
 
 		env.containers = append(env.containers, cid)
@@ -256,12 +286,15 @@ func (env *Env) waitUntilReady(containers []*tpl.Container) error {
 	for _, cont := range containers {
 		for _, check := range cont.GetReadinessChecks() {
 			tplName, tplIdx := cont.Template()
+			selfPorts := env.ports[tplName][tplIdx][cont.Name()]
 
 			intrp := &interpolator{
 				externalAddress: env.params.ExportAddress,
-				self:            cont,
-				selfPorts:       env.ports[tplName][tplIdx][cont.Name()],
-				containers:      containers,
+				self: container2interpolate(cont, selfPorts,
+					env.ips[cont.Hostname()]),
+				ports:      env.ports,
+				ips:        env.ips,
+				containers: containers,
 			}
 
 			if err := check.InterpolateParameters(intrp); err != nil {
@@ -327,9 +360,11 @@ func (env *Env) interpolate(cont *tpl.Container, ports map[uint16]uint16,
 
 	i := &interpolator{
 		externalAddress: env.params.ExportAddress,
-		self:            cont,
-		selfPorts:       ports,
-		containers:      containers,
+		self: container2interpolate(cont, ports,
+			env.ips[cont.Hostname()]),
+		ports:      env.ports,
+		ips:        env.ips,
+		containers: containers,
 	}
 
 	// Environ
@@ -467,35 +502,41 @@ func (er executeResults) Less(i, j int) bool { return er[i].idx < er[j].idx }
 
 // Execute templates in parallel
 func (env *Env) executeTemplates() ([]*tpl.Tpl, error) {
+	needDiscovery := true
+
+	if env.params.EnvDef.Options != nil {
+		needDiscovery = !env.params.EnvDef.Options.DisableDiscovery
+	}
+
 	tplIdx := map[string]int{}
 
 	ctx, cancel := context.WithCancel(env.params.Ctx)
 	defer cancel()
 
 	tpls := env.params.EnvDef.Templates
-	rch := make(chan *executeResult, len(tpls))
-	errch := make(chan error, len(tpls))
+	tplnum := len(tpls)
+
+	if needDiscovery {
+		tplnum += 1
+	}
+
+	rch := make(chan *executeResult, tplnum)
+	errch := make(chan error, tplnum)
 
 	for _, template := range tpls {
 		idx := tplIdx[template.Tpl]
 		tplIdx[template.Tpl]++
 
-		go func(tplObj *def.Tpl, idx int) {
-			t, err := tpl.Execute(env.id, tplObj.Tpl, idx,
-				tpl.ExecuteParams{
-					TplDir:    env.params.BaseTplDir,
-					WsDir:     env.wsDir,
-					MountDir:  env.mountDir,
-					TplParams: tplObj.Parameters,
-					Ctx:       ctx,
-				})
+		go env.execTpl(template, idx, rch, errch, false, ctx)
+	}
 
-			if err != nil {
-				errch <- errors.WithStack(err)
-			} else {
-				rch <- &executeResult{t: t, idx: idx}
-			}
-		}(template, idx)
+	if needDiscovery {
+		itpl := &def.Tpl{
+			Tpl:        "discovery",
+			Parameters: def.TplParams{},
+		}
+
+		go env.execTpl(itpl, 0, rch, errch, true, ctx)
 	}
 
 	var results executeResults
@@ -503,7 +544,7 @@ func (env *Env) executeTemplates() ([]*tpl.Tpl, error) {
 	var execErr error
 	count := 0
 
-	for count < len(tpls) {
+	for count < tplnum {
 		select {
 		case err := <-errch:
 			if execErr == nil {
@@ -661,5 +702,36 @@ func (env *Env) Export() *def.OutputEnv {
 	return &def.OutputEnv{
 		Id:        env.id,
 		Templates: templates,
+	}
+}
+
+func (env *Env) execTpl(tplObj *def.Tpl, idx int,
+	rch chan *executeResult, errch chan error,
+	internal bool, ctx context.Context) {
+
+	params := tpl.ExecuteParams{
+		WsDir:     env.wsDir,
+		MountDir:  env.mountDir,
+		TplParams: tplObj.Parameters,
+		Ctx:       ctx,
+	}
+
+	if internal {
+		params.TplDir = "internal-tpl"
+		params.Fs = &tpl.Fs{
+			ReadFile: Asset,
+			Stat:     AssetInfo,
+			Lstat:    AssetInfo,
+		}
+	} else {
+		params.TplDir = env.params.BaseTplDir
+	}
+
+	t, err := tpl.Execute(env.id, tplObj.Tpl, idx, params)
+
+	if err != nil {
+		errch <- errors.WithStack(err)
+	} else {
+		rch <- &executeResult{t: t, idx: idx}
 	}
 }

@@ -1,0 +1,10 @@
+# v1.1.0 (TBD)
+
+* Added dynamic discovery agent
+* Added new `keepalive` configuration parameter to set default environment
+  keepalive.
+* Improved support for docker private registry
+
+# v1.0.0 (2018-12-12)
+
+* The very first release!
