@@ -58,7 +58,7 @@ type Env struct {
 	ed            *def.InputEnv
 	ceng          conteng.ContainerEngine
 	netId         string
-	containers    []string
+	containers    map[string]*tpl.Container // Container ID -> *Container
 	terminating   bool
 	keepAliveChan chan bool
 	builtImages   map[string]struct{}
@@ -93,6 +93,7 @@ func NewEnv(params Params) (env *Env, err error) {
 		params:        params,
 		builtImages:   map[string]struct{}{},
 		ips:           map[string]string{},
+		containers:    map[string]*tpl.Container{},
 	}
 
 	defer func() {
@@ -253,7 +254,7 @@ func NewEnv(params Params) (env *Env, err error) {
 				cont.Hostname())
 		}
 
-		env.containers = append(env.containers, cid)
+		env.containers[cid] = cont
 	}
 
 	env.ports = ports
@@ -598,7 +599,7 @@ func (env *Env) Terminate() error {
 	var err error
 
 	// Stop containers
-	for _, cid := range env.containers {
+	for cid := range env.containers {
 		if err = env.ceng.RemoveContainer(env.params.Ctx, cid); err != nil {
 			envLog.Errorf("Error terminating env %s: %s", env.id, err)
 		}
@@ -734,4 +735,42 @@ func (env *Env) execTpl(tplObj *def.Tpl, idx int,
 	} else {
 		rch <- &executeResult{t: t, idx: idx}
 	}
+}
+
+func (env *Env) StopContainers(strings []string) error {
+	env.RLock()
+	defer env.RUnlock()
+
+	for _, toRemove := range strings {
+		for cid, cont := range env.containers {
+			if cont.ShortHostname() == toRemove {
+				envLog.Infof("Stopping container %s", toRemove)
+
+				if err := env.ceng.StopContainer(env.params.Ctx, cid); err != nil {
+					return errors.Wrapf(err, "Error stopping container")
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func (env *Env) RestartContainers(strings []string) error {
+	env.RLock()
+	defer env.RUnlock()
+
+	for _, toRestart := range strings {
+		for cid, cont := range env.containers {
+			if cont.ShortHostname() == toRestart {
+				envLog.Infof("Restarting container %s", toRestart)
+
+				if err := env.ceng.StartContainer(env.params.Ctx, cid); err != nil {
+					return errors.Wrapf(err, "Error starting container")
+				}
+			}
+		}
+	}
+
+	return nil
 }

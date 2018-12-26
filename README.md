@@ -643,6 +643,25 @@ Create a new environment.
 }
 ```
 
+## PATCH /api/v1/env/{id}
+
+Update existing environment.
+
+### Body
+
+```
+{
+  // A list of fully-qualified container names to stop
+  "stop_containers" :: [string],
+  
+  // A list of fully-qualified container names to restart
+  "start_containers" :: [string],
+ 
+  // New templates to execute
+  "new_templates" :: [tpl]
+}
+```
+
 ## DELETE /api/v1/env/{id}
 
 Delete an environment.

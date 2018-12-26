@@ -27,17 +27,16 @@ package conteng
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
-
-	"encoding/base64"
-	"encoding/json"
-	"io/ioutil"
 
 	"github.com/docker/distribution/reference"
 	hclient "github.com/docker/docker-credential-helpers/client"
@@ -219,6 +218,14 @@ func (de *DockerEngine) RemoveContainer(ctx context.Context, id string) error {
 			RemoveVolumes: true,
 			Force:         true,
 		})
+}
+
+func (de *DockerEngine) StopContainer(ctx context.Context, id string) error {
+	return de.cl.ContainerKill(ctx, id, "INT")
+}
+
+func (de *DockerEngine) StartContainer(ctx context.Context, id string) error {
+	return de.cl.ContainerStart(ctx, id, types.ContainerStartOptions{})
 }
 
 func (de *DockerEngine) RemoveNetwork(ctx context.Context, id string) error {

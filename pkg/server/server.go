@@ -159,8 +159,8 @@ func (s *Server) setupHandlers() {
 	s.router.HandleFunc("/api/v1/env/{id}", hf(s.deleteEnvHandler)).
 		Methods(http.MethodDelete)
 
-	// PATCH /api/v1/env/{id} - Updated an environment
-	s.router.HandleFunc("/api/v1/env/{id}", hf(s.updateEnvHandler)).
+	// PATCH /api/v1/env/{id} - Patch an environment
+	s.router.HandleFunc("/api/v1/env/{id}", hf(s.patchEnvHandler)).
 		Methods(http.MethodPatch)
 
 	// POST /api/v1/env/{id}/keepalive - Keep alive an environment
@@ -272,7 +272,7 @@ func (s *Server) deleteEnvHandler(w http.ResponseWriter, req *http.Request) {
 	ApiSendMessage(w, http.StatusOK, "Env deleted")
 }
 
-func (s *Server) updateEnvHandler(w http.ResponseWriter, req *http.Request) {
+func (s *Server) patchEnvHandler(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
 	vars := mux.Vars(req)
@@ -290,9 +290,47 @@ func (s *Server) updateEnvHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	_ = e
+	patchDef := def.PatchEnv{}
 
-	//TODO
+	err := json.NewDecoder(req.Body).Decode(&patchDef)
+
+	if err != nil {
+		serverLog.Errorf("Error parsing patch request body for %s: %s",
+			id, err)
+
+		ApiSendMessage(w, http.StatusBadRequest, "Error parsing request body")
+
+		return
+	}
+
+	// 1. Check if there are containers to stop
+	if len(patchDef.StopContainers) > 0 {
+		if err := e.StopContainers(patchDef.StopContainers); err != nil {
+
+			serverLog.Errorf("Error stopping containers for %s: %+v", id, err)
+
+			ApiSendMessage(w, http.StatusBadRequest, "Error stopping containers")
+
+			return
+		}
+	}
+
+	// 2. Check if there are containers to restart
+	if len(patchDef.RestartContainers) > 0 {
+		if err := e.RestartContainers(patchDef.RestartContainers); err != nil {
+			serverLog.Errorf("Error restarting containers for %s: %+v",
+				id, err)
+
+			ApiSendMessage(w, http.StatusBadRequest,
+				"Error restarting containers")
+
+			return
+		}
+	}
+
+	// 3. Check if there are new templates to add
+	// TODO
+
 	ApiSendMessage(w, http.StatusOK, "Env updated")
 }
 

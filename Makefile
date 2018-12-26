@@ -1,6 +1,6 @@
 BUILD=CGO_ENABLED=0 go build -ldflags "-s -w"
 PKG=github.com/syhpoon/xenvman/cmd
-VERSION=1.0.1
+VERSION := $(shell grep const cmd/version.go | cut -f2 -d"=" | tr -d '[:space:]"')
 
 .PHONY: fmt test vet deps build prepare default toc
 

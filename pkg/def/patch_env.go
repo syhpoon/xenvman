@@ -21,20 +21,11 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
 */
-package main
 
-import (
-	"fmt"
+package def
 
-	"github.com/spf13/cobra"
-)
-
-const version = "1.1.0"
-
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print xenvman version",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("xenvman - version %s\n", version)
-	},
+type PatchEnv struct {
+	StopContainers    []string `json:"stop_containers,omitempty"`
+	RestartContainers []string `json:"restart_containers,omitempty"`
+	NewTemplates      []*Tpl   `json:"new_templates,omitempty"`
 }
