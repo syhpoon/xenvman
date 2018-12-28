@@ -637,6 +637,8 @@ Create a new environment.
 #### container-data
 ```
 {
+  // Unique container id
+  "id"    :: string,
   // container port to exposed address:port
   // Exposed address contains public xenvman ip plus exposed container port
   "ports" :: {port :: int -> string}

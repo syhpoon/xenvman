@@ -93,7 +93,7 @@ func (rnet *readinessCheckNet) InterpolateParameters(data interface{}) error {
 	return rnet.init()
 }
 
-func (rnet *readinessCheckNet) WaitUntilReady(ctx context.Context) bool {
+func (rnet *readinessCheckNet) Wait(ctx context.Context, success bool) bool {
 	for i := 0; rnet.params.RetryLimit == 0 || i < rnet.params.RetryLimit; i++ {
 		if i > 0 {
 			select {
@@ -105,14 +105,13 @@ func (rnet *readinessCheckNet) WaitUntilReady(ctx context.Context) bool {
 
 		con, err := net.Dial(rnet.params.Protocol, rnet.params.Address)
 
-		if err != nil {
-			readinessHttpLog.Warningf("Error running NET readiness check to %s: %s",
-				rnet.params.Address, err)
-
+		if (success && err != nil) || (!success && err == nil) {
 			continue
 		}
 
-		con.Close()
+		if con != nil {
+			_ = con.Close()
+		}
 
 		return true
 	}

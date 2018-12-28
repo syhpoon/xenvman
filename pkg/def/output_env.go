@@ -27,12 +27,15 @@ package def
 import "github.com/pkg/errors"
 
 type ContainerData struct {
+	// Container id
+	Id string `json:"id"`
 	// <internal port> -> "<host>:<external port>"
 	Ports map[int]string `json:"ports"`
 }
 
-func NewContainerData() *ContainerData {
+func NewContainerData(id string) *ContainerData {
 	return &ContainerData{
+		Id:    id,
 		Ports: map[int]string{},
 	}
 }

@@ -209,13 +209,10 @@ func (cont *Container) Template() (string, int) {
 }
 
 func (cont *Container) Hostname() string {
-	return fmt.Sprintf("%s.%s", cont.ShortHostname(), serviceDomain)
-}
-
-func (cont *Container) ShortHostname() string {
 	tplName := strings.Replace(cont.tplName, "/", "-", -1)
 
-	return fmt.Sprintf("%s.%d.%s", cont.name, cont.tplIdx, tplName)
+	return fmt.Sprintf("%s.%d.%s.%s", cont.name, cont.tplIdx,
+		tplName, serviceDomain)
 }
 
 func (cont *Container) GetReadinessChecks() []ReadinessCheck {

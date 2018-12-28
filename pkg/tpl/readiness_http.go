@@ -143,7 +143,7 @@ func (rh *readinessCheckHttp) InterpolateParameters(data interface{}) error {
 	return rh.init()
 }
 
-func (rh *readinessCheckHttp) WaitUntilReady(ctx context.Context) bool {
+func (rh *readinessCheckHttp) Wait(ctx context.Context, success bool) bool {
 	cl := http.Client{Timeout: 2 * time.Second}
 
 	i := 0
@@ -160,9 +160,7 @@ func (rh *readinessCheckHttp) WaitUntilReady(ctx context.Context) bool {
 		i += 1
 		resp, err := cl.Get(rh.params.Url)
 
-		if err != nil {
-			readinessHttpLog.Warningf("Error running HTTP readiness check to %s: %s", rh.params.Url, err)
-
+		if (success && err != nil) || (!success && err == nil) {
 			continue
 		}
 
@@ -171,7 +169,8 @@ func (rh *readinessCheckHttp) WaitUntilReady(ctx context.Context) bool {
 			found := false
 
 			for _, code := range rh.params.Codes {
-				if resp.StatusCode == code {
+				if (success && resp.StatusCode == code) ||
+					(!success && resp.StatusCode != code) {
 					found = true
 					break
 				}
@@ -192,14 +191,14 @@ func (rh *readinessCheckHttp) WaitUntilReady(ctx context.Context) bool {
 				continue
 			}
 
-			if !rh.body.Match(body) {
-				readinessHttpLog.Debugf("Body mismatch: %s", rh.body.String())
+			match := rh.body.Match(body)
 
+			if (success && !match) || (!success && match) {
 				continue
 			}
 		}
 
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		//TODO: Match headers
 

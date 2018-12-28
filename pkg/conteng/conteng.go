@@ -56,7 +56,7 @@ type ContainerEngine interface {
 	RunContainer(ctx context.Context, name, tag string,
 		params RunContainerParams) (string, error)
 	StopContainer(ctx context.Context, id string) error
-	StartContainer(ctx context.Context, id string) error
+	RestartContainer(ctx context.Context, id string) error
 	// Stop and remove
 	RemoveContainer(ctx context.Context, id string) error
 	RemoveNetwork(ctx context.Context, id string) error

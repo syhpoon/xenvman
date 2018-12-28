@@ -224,7 +224,7 @@ func (de *DockerEngine) StopContainer(ctx context.Context, id string) error {
 	return de.cl.ContainerKill(ctx, id, "INT")
 }
 
-func (de *DockerEngine) StartContainer(ctx context.Context, id string) error {
+func (de *DockerEngine) RestartContainer(ctx context.Context, id string) error {
 	return de.cl.ContainerStart(ctx, id, types.ContainerStartOptions{})
 }
 

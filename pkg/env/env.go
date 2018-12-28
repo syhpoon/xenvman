@@ -50,15 +50,17 @@ var envLog = logger.GetLogger("xenvman.pkg.env.env")
 
 // Configured environment
 type Env struct {
-	id            string
-	wsDir         string
-	mountDir      string
-	ports         ports
-	ips           map[string]string // Hostname -> IP
-	ed            *def.InputEnv
-	ceng          conteng.ContainerEngine
-	netId         string
-	containers    map[string]*tpl.Container // Container ID -> *Container
+	id         string
+	wsDir      string
+	mountDir   string
+	ports      ports
+	ips        map[string]string // Hostname -> IP
+	ed         *def.InputEnv
+	ceng       conteng.ContainerEngine
+	netId      string
+	containers map[string]*tpl.Container // Container ID -> *Container
+	// template name -> [container name -> container id]
+	contIds       map[string][]map[string]string
 	terminating   bool
 	keepAliveChan chan bool
 	builtImages   map[string]struct{}
@@ -94,6 +96,7 @@ func NewEnv(params Params) (env *Env, err error) {
 		builtImages:   map[string]struct{}{},
 		ips:           map[string]string{},
 		containers:    map[string]*tpl.Container{},
+		contIds:       map[string][]map[string]string{},
 	}
 
 	defer func() {
@@ -255,6 +258,20 @@ func NewEnv(params Params) (env *Env, err error) {
 		}
 
 		env.containers[cid] = cont
+
+		// Allow looking up container id by full name
+		tplName, tplIdx := cont.Template()
+
+		if _, ok := env.contIds[tplName]; !ok {
+			env.contIds[tplName] = []map[string]string{}
+		}
+
+		for len(env.contIds[tplName]) < tplIdx+1 {
+			env.contIds[tplName] = append(env.contIds[tplName],
+				map[string]string{})
+		}
+
+		env.contIds[tplName][tplIdx][cont.Name()] = cid
 	}
 
 	env.ports = ports
@@ -323,7 +340,7 @@ func (env *Env) waitUntilReady(containers []*tpl.Container) error {
 
 	for _, check := range checks {
 		go func(check tpl.ReadinessCheck) {
-			if !check.WaitUntilReady(ctx) {
+			if !check.Wait(ctx, true) {
 				errCh <- errors.WithStack(
 					errors.Errorf("Readiness check %s failed", check.String()))
 			} else {
@@ -680,14 +697,15 @@ func (env *Env) Export() *def.OutputEnv {
 	templates := map[string][]*def.TplData{}
 
 	for tplName, tpls := range env.ports {
-		for _, t := range tpls {
+		for idx, t := range tpls {
 			tpld := &def.TplData{
 				Containers: map[string]*def.ContainerData{},
 			}
 
 			for cont, ps := range t {
 				if _, ok := tpld.Containers[cont]; !ok {
-					tpld.Containers[cont] = def.NewContainerData()
+					tpld.Containers[cont] = def.NewContainerData(
+						env.contIds[tplName][idx][cont])
 				}
 
 				for ip, ep := range ps {
@@ -743,12 +761,22 @@ func (env *Env) StopContainers(strings []string) error {
 
 	for _, toRemove := range strings {
 		for cid, cont := range env.containers {
-			if cont.ShortHostname() == toRemove {
+			if cid == toRemove {
 				envLog.Infof("Stopping container %s", toRemove)
 
 				if err := env.ceng.StopContainer(env.params.Ctx, cid); err != nil {
 					return errors.Wrapf(err, "Error stopping container")
 				}
+
+				// Wait for readiness checks to fail
+				for _, rc := range cont.GetReadinessChecks() {
+					if !rc.Wait(env.params.Ctx, false) {
+						return errors.Errorf(
+							"Error waiting for readiness check: %s", rc.String())
+					}
+				}
+
+				break
 			}
 		}
 	}
@@ -762,12 +790,21 @@ func (env *Env) RestartContainers(strings []string) error {
 
 	for _, toRestart := range strings {
 		for cid, cont := range env.containers {
-			if cont.ShortHostname() == toRestart {
+			if cid == toRestart {
 				envLog.Infof("Restarting container %s", toRestart)
 
-				if err := env.ceng.StartContainer(env.params.Ctx, cid); err != nil {
+				if err := env.ceng.RestartContainer(env.params.Ctx, cid); err != nil {
 					return errors.Wrapf(err, "Error starting container")
 				}
+
+				for _, rc := range cont.GetReadinessChecks() {
+					if !rc.Wait(env.params.Ctx, true) {
+						return errors.Errorf(
+							"Error waiting for readiness check: %s", rc.String())
+					}
+				}
+
+				break
 			}
 		}
 	}

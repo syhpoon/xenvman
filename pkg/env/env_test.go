@@ -295,3 +295,112 @@ func TestEnvOk(t *testing.T) {
 	ceng.AssertCalled(t, "RemoveNetwork", mock.Anything, mock.Anything)
 	ceng.AssertNumberOfCalls(t, "RemoveNetwork", 1)
 }
+
+func TestStartStopContainers(t *testing.T) {
+	ctx := context.Background()
+	ceng := new(conteng.MockedEngine)
+
+	imgName := "image"
+	contName := "cont"
+
+	imgMatcher := mock.MatchedBy(func(img string) bool {
+		return strings.Contains(img, imgName)
+	})
+
+	ceng.On("CreateNetwork", mock.Anything, mock.Anything).
+		Return("net-id", "10.0.0.0/24", nil)
+	ceng.On("RemoveNetwork", mock.Anything, mock.AnythingOfType("string")).
+		Return(nil)
+
+	ceng.On("GetImagePorts", mock.Anything,
+		imgMatcher).Return([]uint16(nil), nil)
+	ceng.On("FetchImage", mock.Anything, imgName).Return(nil)
+
+	ceng.On("RunContainer", mock.Anything,
+		fmt.Sprintf("%s.0.simple.xenv", contName), imgName,
+		mock.Anything).Return("cont-0", nil)
+
+	ceng.On("RunContainer", mock.Anything,
+		fmt.Sprintf("%s.1.simple.xenv", contName), imgName,
+		mock.Anything).Return("cont-1", nil)
+
+	ceng.On("StopContainer", mock.Anything, "cont-0").Return(nil)
+	ceng.On("RestartContainer", mock.Anything, "cont-0").Return(nil)
+
+	ceng.On("RemoveContainer", mock.Anything, mock.Anything).Return(nil)
+	ceng.On("RemoveImage", mock.Anything, mock.Anything).Return(nil)
+
+	cwd, err := os.Getwd()
+	require.Nil(t, err)
+
+	tmpDir := filepath.Join(os.TempDir(), "xenvman-test-"+lib.NewId())
+
+	envName := "test"
+	tplName := "simple"
+
+	env, err := NewEnv(Params{
+		EnvDef: &def.InputEnv{
+			Name: envName,
+			Templates: []*def.Tpl{
+				{
+					Tpl: tplName,
+					Parameters: map[string]interface{}{
+						"image":     imgName,
+						"container": contName,
+					},
+				},
+				{
+					Tpl: tplName,
+					Parameters: map[string]interface{}{
+						"image":     imgName,
+						"container": contName,
+					},
+				},
+			},
+			Options: &def.EnvOptions{
+				DisableDiscovery: true,
+			},
+		},
+		ContEng:       ceng,
+		BaseTplDir:    filepath.Join(cwd, "./testdata"),
+		BaseWsDir:     filepath.Join(tmpDir, "ws"),
+		BaseMountDir:  filepath.Join(tmpDir, "mount"),
+		PortRange:     lib.NewPortRange(20000, 30000),
+		ExportAddress: "localhost",
+		Ctx:           ctx,
+	})
+
+	defer os.RemoveAll(tmpDir)
+
+	require.Nil(t, err)
+	exported := env.Export()
+	cid0 := exported.Templates["simple"][0].Containers[contName].Id
+	cid1 := exported.Templates["simple"][1].Containers[contName].Id
+
+	require.Nil(t, err)
+	require.Len(t, env.containers, 2)
+	require.Contains(t, env.containers, cid0)
+	require.Contains(t, env.containers, cid1)
+
+	err = env.StopContainers([]string{cid0})
+	require.Nil(t, err)
+
+	err = env.RestartContainers([]string{cid0})
+	require.Nil(t, err)
+
+	require.Nil(t, env.Terminate())
+
+	// Mock assertion
+	ceng.AssertNumberOfCalls(t, "FetchImage", 1)
+
+	ceng.AssertCalled(t, "RunContainer", mock.Anything,
+		fmt.Sprintf("%s.0.simple.xenv", contName), imgName,
+		mock.Anything)
+
+	ceng.AssertCalled(t, "RunContainer", mock.Anything,
+		fmt.Sprintf("%s.1.simple.xenv", contName), imgMatcher,
+		mock.Anything)
+
+	ceng.AssertCalled(t, "StopContainer", mock.Anything, cid0)
+	ceng.AssertCalled(t, "RestartContainer", mock.Anything, cid0)
+}

@@ -31,6 +31,6 @@ import (
 
 type ReadinessCheck interface {
 	InterpolateParameters(data interface{}) error
-	WaitUntilReady(ctx context.Context) bool
+	Wait(ctx context.Context, success bool) bool
 	fmt.Stringer
 }

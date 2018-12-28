@@ -27,4 +27,10 @@ function execute(tpl, params) {
 
   cont.MountString(rules, "/docker-entrypoint-initdb.d/init.js", 0644, {});
   cont.SetLabel("mongo", "true");
+  cont.SetPorts(27017);
+
+  cont.AddReadinessCheck("net", {
+    "protocol": "tcp",
+    "address": '{{.ExternalAddress}}:{{.Self.ExposedPort 27017}}'
+  });
 }

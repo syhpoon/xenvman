@@ -80,7 +80,7 @@ func (me *MockedEngine) StopContainer(ctx context.Context, id string) error {
 	return args.Error(0)
 }
 
-func (me *MockedEngine) StartContainer(ctx context.Context, id string) error {
+func (me *MockedEngine) RestartContainer(ctx context.Context, id string) error {
 	args := me.Called(ctx, id)
 
 	return args.Error(0)
