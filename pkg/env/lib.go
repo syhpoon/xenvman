@@ -29,7 +29,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
 	"github.com/syhpoon/xenvman/pkg/lib"
 	"github.com/syhpoon/xenvman/pkg/tpl"
 )
@@ -40,16 +39,7 @@ func newEnvId(name string) string {
 	return fmt.Sprintf("%s-%s-%s", name, t, lib.NewIdShort())
 }
 
-func assignIps(sub string, conts []*tpl.Container) ([]string, map[string]string, error) {
-	ipn, err := lib.ParseNet(sub)
-
-	if err != nil {
-		return nil, nil, errors.WithStack(err)
-	}
-
-	// Skip gateway
-	_ = ipn.NextIP()
-
+func assignIps(ipn *lib.Net, conts []*tpl.Container) ([]string, map[string]string, error) {
 	ips := make([]string, len(conts))
 	hosts := map[string]string{}
 
@@ -58,7 +48,7 @@ func assignIps(sub string, conts []*tpl.Container) ([]string, map[string]string,
 		hostname := cont.Hostname()
 
 		if ip == nil {
-			return nil, nil, errors.Errorf("Unable to assign IP to container: network %s exhausted", sub)
+			return nil, nil, errors.Errorf("Unable to assign IP to container: network %s exhausted", ipn.Sub())
 		}
 
 		ips[i] = ip.String()

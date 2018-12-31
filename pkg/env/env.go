@@ -58,14 +58,17 @@ type Env struct {
 	ed         *def.InputEnv
 	ceng       conteng.ContainerEngine
 	netId      string
+	ipn        *lib.Net
 	containers map[string]*tpl.Container // Container ID -> *Container
 	// template name -> [container name -> container id]
-	contIds       map[string][]map[string]string
-	terminating   bool
-	keepAliveChan chan bool
-	builtImages   map[string]struct{}
-	params        Params
-	tpls          []*tpl.Tpl
+	contIds           map[string][]map[string]string
+	terminating       bool
+	keepAliveChan     chan bool
+	builtImages       map[string]struct{}
+	discoveryHostname string
+	params            Params
+	tpls              []*tpl.Tpl
+	tplIdx            map[string]int
 	sync.RWMutex
 }
 
@@ -89,6 +92,7 @@ func NewEnv(params Params) (env *Env, err error) {
 		id:            id,
 		wsDir:         filepath.Join(params.BaseWsDir, id),
 		mountDir:      filepath.Join(params.BaseMountDir, id),
+		ports:         make(ports),
 		ed:            params.EnvDef,
 		ceng:          params.ContEng,
 		keepAliveChan: make(chan bool, 1),
@@ -97,6 +101,7 @@ func NewEnv(params Params) (env *Env, err error) {
 		ips:           map[string]string{},
 		containers:    map[string]*tpl.Container{},
 		contIds:       map[string][]map[string]string{},
+		tplIdx:        map[string]int{},
 	}
 
 	defer func() {
@@ -109,186 +114,25 @@ func NewEnv(params Params) (env *Env, err error) {
 		}
 	}()
 
-	imagesToBuild := map[string]*tpl.BuildImage{}
-	imagesToFetch := map[string]*tpl.FetchImage{}
+	needDiscovery := true
+	keepalive := params.DefaultKeepAlive
 
-	var containers []*tpl.Container
+	if env.params.EnvDef.Options != nil {
+		needDiscovery = !env.params.EnvDef.Options.DisableDiscovery
 
-	tpls, err := env.executeTemplates()
-
-	if err != nil {
-		_ = env.Terminate()
-		return nil, errors.WithStack(err)
-	} else {
-		env.tpls = tpls
-	}
-
-	for _, t := range tpls {
-		// Collect build images
-		for _, bimg := range t.GetBuildImages() {
-			imagesToBuild[bimg.Name()] = bimg
-
-			// Collect containers
-			for _, c := range bimg.Containers() {
-				containers = append(containers, c)
-			}
-		}
-
-		// Collect fetch images
-		for _, fimg := range t.GetFetchImages() {
-			imagesToFetch[fimg.Name()] = fimg
-
-			// Collect containers
-			for _, c := range fimg.Containers() {
-				containers = append(containers, c)
-			}
+		if params.EnvDef.Options.KeepAlive != 0 {
+			keepalive = params.EnvDef.Options.KeepAlive
 		}
 	}
 
-	imgPorts, err := env.buildAndFetch(imagesToBuild, imagesToFetch,
-		params.ContEng, params.Ctx)
-
-	if err != nil {
+	if err := env.ApplyTemplates(
+		env.params.EnvDef.Templates, needDiscovery); err != nil {
 		_ = env.Terminate()
 
 		return nil, errors.WithStack(err)
-	}
-
-	// Create network
-	netId, sub, err := params.ContEng.CreateNetwork(params.Ctx, id)
-
-	if err != nil {
-		_ = env.Terminate()
-
-		return nil, errors.Wrapf(err, "Error creating network")
-	}
-
-	env.netId = netId
-
-	ips, hosts, err := assignIps(sub, containers)
-
-	if err != nil {
-		_ = env.Terminate()
-
-		return nil, errors.WithStack(err)
-	}
-
-	env.ips = hosts
-
-	ports := make(ports)
-
-	// Expose all the ports
-	cports := map[string]map[uint16]uint16{}
-
-	discoveryHostname := ""
-
-	for _, cont := range containers {
-		if cont.GetLabel("xenv-discovery") == "true" {
-			discoveryHostname = cont.Hostname()
-		}
-
-		imgName := cont.Image()
-
-		portsToExpose := cont.Ports()
-
-		if len(portsToExpose) == 0 {
-			portsToExpose = imgPorts[imgName]
-		}
-
-		if _, ok := cports[cont.Hostname()]; !ok {
-			cports[cont.Hostname()] = map[uint16]uint16{}
-		}
-
-		for _, contPort := range portsToExpose {
-			port, err := params.PortRange.NextPort()
-
-			if err != nil {
-				_ = env.Terminate()
-
-				return nil, errors.WithStack(err)
-			}
-
-			envLog.Debugf("Exposing internal port %d as %d for %s",
-				contPort, port, cont.Hostname())
-
-			cports[cont.Hostname()][contPort] = port
-		}
-
-		ports.add(cont, cports[cont.Hostname()])
-	}
-
-	// Now create containers
-	for i, cont := range containers {
-		// Interpolate container files
-		if err = env.interpolate(cont, cports[cont.Hostname()],
-			containers); err != nil {
-
-			_ = env.Terminate()
-
-			return nil, errors.WithStack(err)
-		}
-
-		cparams := conteng.RunContainerParams{
-			NetworkId:  netId,
-			IP:         ips[i],
-			Ports:      cports[cont.Hostname()],
-			Environ:    cont.Environ(),
-			Cmd:        cont.Cmd(),
-			FileMounts: cont.Mounts(),
-		}
-
-		if !env.params.EnvDef.Options.DisableDiscovery {
-			cparams.DiscoverDNS = env.ips[discoveryHostname]
-
-			envLog.Infof("[%s] Using discovery DNS: %s", id, cparams.DiscoverDNS)
-		} else {
-			cparams.Hosts = hosts
-
-			envLog.Infof("[%s] Using static hosts", id)
-		}
-
-		cid, err := params.ContEng.RunContainer(params.Ctx,
-			cont.Hostname(), cont.Image(), cparams)
-
-		if err != nil {
-			_ = env.Terminate()
-
-			return nil, errors.Wrapf(err, "Error running container: %s",
-				cont.Hostname())
-		}
-
-		env.containers[cid] = cont
-
-		// Allow looking up container id by full name
-		tplName, tplIdx := cont.Template()
-
-		if _, ok := env.contIds[tplName]; !ok {
-			env.contIds[tplName] = []map[string]string{}
-		}
-
-		for len(env.contIds[tplName]) < tplIdx+1 {
-			env.contIds[tplName] = append(env.contIds[tplName],
-				map[string]string{})
-		}
-
-		env.contIds[tplName][tplIdx][cont.Name()] = cid
-	}
-
-	env.ports = ports
-
-	// Perform readiness checks
-	if err := env.waitUntilReady(containers); err != nil {
-		_ = env.Terminate()
-
-		return nil, errors.Wrapf(err, "Error running readiness checks")
 	}
 
 	envLog.Infof("New env created: %s", id)
-	keepalive := params.DefaultKeepAlive
-
-	if params.EnvDef.Options != nil && params.EnvDef.Options.KeepAlive != 0 {
-		keepalive = params.EnvDef.Options.KeepAlive
-	}
 
 	if keepalive != 0 {
 		envLog.Infof("Keep alive for %s = %s", id, keepalive)
@@ -304,14 +148,19 @@ func (env *Env) waitUntilReady(containers []*tpl.Container) error {
 	for _, cont := range containers {
 		for _, check := range cont.GetReadinessChecks() {
 			tplName, tplIdx := cont.Template()
+
+			env.RLock()
 			selfPorts := env.ports[tplName][tplIdx][cont.Name()]
+			ports := env.ports
+			ips := env.ips
+			env.RUnlock()
 
 			intrp := &interpolator{
 				externalAddress: env.params.ExportAddress,
 				self: container2interpolate(cont, selfPorts,
-					env.ips[cont.Hostname()]),
-				ports:      env.ports,
-				ips:        env.ips,
+					ips[cont.Hostname()]),
+				ports:      ports,
+				ips:        ips,
 				containers: containers,
 			}
 
@@ -519,19 +368,12 @@ func (er executeResults) Swap(i, j int)      { er[i], er[j] = er[j], er[i] }
 func (er executeResults) Less(i, j int) bool { return er[i].idx < er[j].idx }
 
 // Execute templates in parallel
-func (env *Env) executeTemplates() ([]*tpl.Tpl, error) {
-	needDiscovery := true
-
-	if env.params.EnvDef.Options != nil {
-		needDiscovery = !env.params.EnvDef.Options.DisableDiscovery
-	}
-
-	tplIdx := map[string]int{}
+func (env *Env) executeTemplates(tpls []*def.Tpl,
+	needDiscovery bool) ([]*tpl.Tpl, error) {
 
 	ctx, cancel := context.WithCancel(env.params.Ctx)
 	defer cancel()
 
-	tpls := env.params.EnvDef.Templates
 	tplnum := len(tpls)
 
 	if needDiscovery {
@@ -541,12 +383,14 @@ func (env *Env) executeTemplates() ([]*tpl.Tpl, error) {
 	rch := make(chan *executeResult, tplnum)
 	errch := make(chan error, tplnum)
 
+	env.Lock()
 	for _, template := range tpls {
-		idx := tplIdx[template.Tpl]
-		tplIdx[template.Tpl]++
+		idx := env.tplIdx[template.Tpl]
+		env.tplIdx[template.Tpl]++
 
 		go env.execTpl(template, idx, rch, errch, false, ctx)
 	}
+	env.Unlock()
 
 	if needDiscovery {
 		itpl := &def.Tpl{
@@ -808,6 +652,207 @@ func (env *Env) RestartContainers(strings []string) error {
 			}
 		}
 	}
+
+	return nil
+}
+
+//TODO: Notify discovery about new containers
+func (env *Env) ApplyTemplates(tplDefs []*def.Tpl, needDiscovery bool) error {
+	imagesToBuild := map[string]*tpl.BuildImage{}
+	imagesToFetch := map[string]*tpl.FetchImage{}
+
+	var containers []*tpl.Container
+
+	tpls, err := env.executeTemplates(tplDefs, false)
+
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	for _, t := range tpls {
+		// Collect build images
+		for _, bimg := range t.GetBuildImages() {
+			imagesToBuild[bimg.Name()] = bimg
+
+			// Collect containers
+			for _, c := range bimg.Containers() {
+				containers = append(containers, c)
+			}
+		}
+
+		// Collect fetch images
+		for _, fimg := range t.GetFetchImages() {
+			imagesToFetch[fimg.Name()] = fimg
+
+			// Collect containers
+			for _, c := range fimg.Containers() {
+				containers = append(containers, c)
+			}
+		}
+	}
+
+	imgPorts, err := env.buildAndFetch(imagesToBuild, imagesToFetch,
+		env.params.ContEng, env.params.Ctx)
+
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	env.Lock()
+	ipn := env.ipn
+	netId := env.netId
+	var sub string
+
+	if env.ipn == nil {
+		// Create network
+		netId, sub, err = env.params.ContEng.CreateNetwork(
+			env.params.Ctx, env.id)
+
+		if err != nil {
+			env.Unlock()
+
+			return errors.Wrapf(err, "Error creating network")
+		}
+
+		ipn, err = lib.ParseNet(sub)
+
+		if err != nil {
+			env.Unlock()
+
+			return errors.Wrapf(err, "Error parsing subnet")
+		}
+
+		// Skip gateway
+		_ = ipn.NextIP()
+
+		env.netId = netId
+		env.ipn = ipn
+	}
+
+	env.Unlock()
+
+	ips, hosts, err := assignIps(ipn, containers)
+
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	env.Lock()
+	for k, v := range hosts {
+		env.ips[k] = v
+	}
+	env.Unlock()
+
+	// Expose all the ports
+	cports := map[string]map[uint16]uint16{}
+
+	env.RLock()
+	discoveryHostname := env.discoveryHostname
+	env.RUnlock()
+
+	for _, cont := range containers {
+		if cont.GetLabel("xenv-discovery") == "true" {
+			env.Lock()
+			env.discoveryHostname = cont.Hostname()
+			discoveryHostname = env.discoveryHostname
+			env.Unlock()
+		}
+
+		imgName := cont.Image()
+		portsToExpose := cont.Ports()
+
+		if len(portsToExpose) == 0 {
+			portsToExpose = imgPorts[imgName]
+		}
+
+		if _, ok := cports[cont.Hostname()]; !ok {
+			cports[cont.Hostname()] = map[uint16]uint16{}
+		}
+
+		for _, contPort := range portsToExpose {
+			port, err := env.params.PortRange.NextPort()
+
+			if err != nil {
+				_ = env.Terminate()
+
+				return errors.WithStack(err)
+			}
+
+			envLog.Debugf("Exposing internal port %d as %d for %s",
+				contPort, port, cont.Hostname())
+
+			cports[cont.Hostname()][contPort] = port
+		}
+
+		env.Lock()
+		env.ports.add(cont, cports[cont.Hostname()])
+		env.Unlock()
+	}
+
+	// Now create containers
+	for i, cont := range containers {
+		// Interpolate container files
+		if err = env.interpolate(cont, cports[cont.Hostname()],
+			containers); err != nil {
+
+			return errors.WithStack(err)
+		}
+
+		cparams := conteng.RunContainerParams{
+			NetworkId:  netId,
+			IP:         ips[i],
+			Ports:      cports[cont.Hostname()],
+			Environ:    cont.Environ(),
+			Cmd:        cont.Cmd(),
+			FileMounts: cont.Mounts(),
+		}
+
+		if needDiscovery {
+			cparams.DiscoverDNS = env.ips[discoveryHostname]
+
+			envLog.Infof("[%s] Using discovery DNS: %s",
+				env.id, cparams.DiscoverDNS)
+		} else {
+			cparams.Hosts = hosts
+
+			envLog.Infof("[%s] Using static hosts", env.id)
+		}
+
+		cid, err := env.params.ContEng.RunContainer(env.params.Ctx,
+			cont.Hostname(), cont.Image(), cparams)
+
+		if err != nil {
+			return errors.Wrapf(err, "Error running container: %s",
+				cont.Hostname())
+		}
+
+		env.Lock()
+		env.containers[cid] = cont
+
+		// Allow looking up container id by full name
+		tplName, tplIdx := cont.Template()
+
+		if _, ok := env.contIds[tplName]; !ok {
+			env.contIds[tplName] = []map[string]string{}
+		}
+
+		for len(env.contIds[tplName]) < tplIdx+1 {
+			env.contIds[tplName] = append(env.contIds[tplName],
+				map[string]string{})
+		}
+
+		env.contIds[tplName][tplIdx][cont.Name()] = cid
+		env.Unlock()
+	}
+
+	// Perform readiness checks
+	if err := env.waitUntilReady(containers); err != nil {
+		return errors.Wrapf(err, "Error running readiness checks")
+	}
+
+	env.Lock()
+	env.tpls = append(env.tpls, tpls...)
+	env.Unlock()
 
 	return nil
 }

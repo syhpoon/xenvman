@@ -26,6 +26,7 @@ package lib
 import (
 	"net"
 	"os"
+	"sync"
 	"syscall"
 
 	"encoding/binary"
@@ -34,9 +35,11 @@ import (
 )
 
 type Net struct {
+	sub    string
 	ip     net.IP
 	lastIP net.IP
 	ipnet  *net.IPNet
+	sync.Mutex
 }
 
 // Only works for IP4 for now
@@ -54,6 +57,7 @@ func ParseNet(sub string) (*Net, error) {
 			net.IP(ipnet.Mask).To4()))
 
 	return &Net{
+		sub:    sub,
 		ip:     ip.To4(),
 		lastIP: lastip.To4(),
 		ipnet:  ipnet,
@@ -61,6 +65,9 @@ func ParseNet(sub string) (*Net, error) {
 }
 
 func (n *Net) NextIP() net.IP {
+	n.Lock()
+	defer n.Unlock()
+
 	n.ip[3]++
 
 	if n.ip.Equal(n.lastIP) || !n.ipnet.Contains(n.ip) {
@@ -68,6 +75,10 @@ func (n *Net) NextIP() net.IP {
 	}
 
 	return n.ip
+}
+
+func (n *Net) Sub() string {
+	return n.sub
 }
 
 func NetsOverlap(n1, n2 *net.IPNet) bool {

@@ -329,7 +329,17 @@ func (s *Server) patchEnvHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// 3. Check if there are new templates to add
-	// TODO
+	if len(patchDef.NewTemplates) > 0 {
+		if err := e.ApplyTemplates(patchDef.NewTemplates, false); err != nil {
+			serverLog.Errorf("Error adding new templates for %s: %+v",
+				id, err)
+
+			ApiSendMessage(w, http.StatusBadRequest,
+				"Error adding new templates")
+
+			return
+		}
+	}
 
 	ApiSendMessage(w, http.StatusOK, "Env updated")
 }
