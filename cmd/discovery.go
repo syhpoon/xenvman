@@ -57,12 +57,17 @@ var discCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx, cancel := context.WithCancel(context.Background())
 
-		mapping, err := loadMapping(flagMappingFile)
+		var err error
+		var mapping map[string]string
 
-		if err != nil {
-			discLog.Errorf("Error loading domain mapping: %s", err)
+		if flagMappingFile != "" {
+			mapping, err = loadMapping(flagMappingFile)
 
-			os.Exit(1)
+			if err != nil {
+				discLog.Errorf("Error loading domain mapping: %s", err)
+
+				os.Exit(1)
+			}
 		}
 
 		httpListener, err := net.Listen("tcp", flagHttpAddr)

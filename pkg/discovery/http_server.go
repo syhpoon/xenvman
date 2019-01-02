@@ -105,6 +105,9 @@ func (srv *HttpServer) setupHandlers() {
 	// GET /api/v1/domains - List domains
 	srv.router.HandleFunc("/api/v1/domains", srv.listDomainsHandler).
 		Methods(http.MethodGet)
+
+	// GET /health - Health endpoint
+	srv.router.HandleFunc("/health", srv.healthHandler).Methods(http.MethodGet)
 }
 
 // Body: {<domain>: <ip>}
@@ -162,4 +165,9 @@ func (srv *HttpServer) deleteDomainsHandler(
 func (srv *HttpServer) listDomainsHandler(
 	w http.ResponseWriter, req *http.Request) {
 	httpLib.ApiSendData(w, http.StatusOK, srv.params.DnsServer.getDomains())
+}
+
+func (srv *HttpServer) healthHandler(
+	w http.ResponseWriter, req *http.Request) {
+	httpLib.ApiSendData(w, http.StatusOK, nil)
 }

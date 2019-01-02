@@ -47,6 +47,7 @@ func (ip *interpolator) ExternalAddress() string {
 }
 
 // Return an external port for the given internal one
+// DEPRECATED: use Self.ExposedPort() instead
 func (ip *interpolator) SelfExposedPort(port int) uint16 {
 	return ip.self.ExposedPort(port)
 }

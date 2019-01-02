@@ -15,14 +15,22 @@ function execute(tpl, params) {
     recursor = params.recursor;
   }
 
+  var port = 8080;
+
   cont.MountData("domains.json", "/domains.json", {"interpolate": true});
-  cont.SetPorts(8080);
+  cont.SetPorts(port);
   cont.SetLabel("xenv-discovery", "true");
+  cont.SetLabel("xenv-discovery-port", fmt("%d", port));
 
   cont.SetCmd("/xenvman", "discovery",
               "--map=/domains.json",
-              "--http-addr=:8080",
+              fmt("--http-addr=:%d", port),
               "--dns-addr=:53",
               fmt("--recursors=%s", recursor)
   );
+
+  cont.AddReadinessCheck("http", {
+    "url": fmt('http://{{.ExternalAddress}}:{{.Self.ExposedPort %d}}/health', port),
+    "codes": [200]
+  });
 }

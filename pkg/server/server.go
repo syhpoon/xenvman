@@ -329,8 +329,8 @@ func (s *Server) patchEnvHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// 3. Check if there are new templates to add
-	if len(patchDef.NewTemplates) > 0 {
-		if err := e.ApplyTemplates(patchDef.NewTemplates, false); err != nil {
+	if len(patchDef.Templates) > 0 {
+		if err := e.ApplyTemplates(patchDef.Templates, false, true); err != nil {
 			serverLog.Errorf("Error adding new templates for %s: %+v",
 				id, err)
 

@@ -660,7 +660,7 @@ Update existing environment.
   "start_containers" :: [string],
  
   // New templates to execute
-  "new_templates" :: [tpl]
+  "templates" :: [tpl]
 }
 ```
 

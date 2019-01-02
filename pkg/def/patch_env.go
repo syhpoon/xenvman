@@ -27,5 +27,5 @@ package def
 type PatchEnv struct {
 	StopContainers    []string `json:"stop_containers,omitempty"`
 	RestartContainers []string `json:"restart_containers,omitempty"`
-	NewTemplates      []*Tpl   `json:"new_templates,omitempty"`
+	Templates         []*Tpl   `json:"templates,omitempty"`
 }

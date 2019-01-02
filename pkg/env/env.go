@@ -27,14 +27,18 @@
 package env
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
+	"encoding/json"
 	"io/ioutil"
+	"net/http"
 	"path/filepath"
 
 	"github.com/pkg/errors"
@@ -47,6 +51,8 @@ import (
 )
 
 var envLog = logger.GetLogger("xenvman.pkg.env.env")
+
+const discoveryTplName = "discovery"
 
 // Configured environment
 type Env struct {
@@ -61,14 +67,15 @@ type Env struct {
 	ipn        *lib.Net
 	containers map[string]*tpl.Container // Container ID -> *Container
 	// template name -> [container name -> container id]
-	contIds           map[string][]map[string]string
-	terminating       bool
-	keepAliveChan     chan bool
-	builtImages       map[string]struct{}
-	discoveryHostname string
-	params            Params
-	tpls              []*tpl.Tpl
-	tplIdx            map[string]int
+	contIds                 map[string][]map[string]string
+	terminating             bool
+	keepAliveChan           chan bool
+	builtImages             map[string]struct{}
+	discoveryHostname       string
+	discoverExternalAddress string
+	params                  Params
+	tpls                    []*tpl.Tpl
+	tplIdx                  map[string]int
 	sync.RWMutex
 }
 
@@ -126,7 +133,7 @@ func NewEnv(params Params) (env *Env, err error) {
 	}
 
 	if err := env.ApplyTemplates(
-		env.params.EnvDef.Templates, needDiscovery); err != nil {
+		env.params.EnvDef.Templates, needDiscovery, false); err != nil {
 		_ = env.Terminate()
 
 		return nil, errors.WithStack(err)
@@ -394,7 +401,7 @@ func (env *Env) executeTemplates(tpls []*def.Tpl,
 
 	if needDiscovery {
 		itpl := &def.Tpl{
-			Tpl:        "discovery",
+			Tpl:        discoveryTplName,
 			Parameters: def.TplParams{},
 		}
 
@@ -656,14 +663,15 @@ func (env *Env) RestartContainers(strings []string) error {
 	return nil
 }
 
-//TODO: Notify discovery about new containers
-func (env *Env) ApplyTemplates(tplDefs []*def.Tpl, needDiscovery bool) error {
+func (env *Env) ApplyTemplates(tplDefs []*def.Tpl,
+	needDiscovery, updateDiscovery bool) error {
+
 	imagesToBuild := map[string]*tpl.BuildImage{}
 	imagesToFetch := map[string]*tpl.FetchImage{}
 
 	var containers []*tpl.Container
 
-	tpls, err := env.executeTemplates(tplDefs, false)
+	tpls, err := env.executeTemplates(tplDefs, needDiscovery)
 
 	if err != nil {
 		return errors.WithStack(err)
@@ -751,11 +759,18 @@ func (env *Env) ApplyTemplates(tplDefs []*def.Tpl, needDiscovery bool) error {
 	env.RUnlock()
 
 	for _, cont := range containers {
+		var dport uint16
+
 		if cont.GetLabel("xenv-discovery") == "true" {
 			env.Lock()
 			env.discoveryHostname = cont.Hostname()
 			discoveryHostname = env.discoveryHostname
 			env.Unlock()
+
+			portStr := cont.GetLabel("xenv-discovery-port")
+			port, _ := strconv.ParseUint(portStr, 0, 16)
+			dport = uint16(port)
+
 		}
 
 		imgName := cont.Image()
@@ -773,8 +788,6 @@ func (env *Env) ApplyTemplates(tplDefs []*def.Tpl, needDiscovery bool) error {
 			port, err := env.params.PortRange.NextPort()
 
 			if err != nil {
-				_ = env.Terminate()
-
 				return errors.WithStack(err)
 			}
 
@@ -782,6 +795,13 @@ func (env *Env) ApplyTemplates(tplDefs []*def.Tpl, needDiscovery bool) error {
 				contPort, port, cont.Hostname())
 
 			cports[cont.Hostname()][contPort] = port
+
+			if contPort == dport {
+				env.Lock()
+				env.discoverExternalAddress = fmt.Sprintf(
+					"http://%s:%d/api/v1/domains", env.params.ExportAddress, port)
+				env.Unlock()
+			}
 		}
 
 		env.Lock()
@@ -807,7 +827,7 @@ func (env *Env) ApplyTemplates(tplDefs []*def.Tpl, needDiscovery bool) error {
 			FileMounts: cont.Mounts(),
 		}
 
-		if needDiscovery {
+		if needDiscovery || discoveryHostname != "" {
 			cparams.DiscoverDNS = env.ips[discoveryHostname]
 
 			envLog.Infof("[%s] Using discovery DNS: %s",
@@ -853,6 +873,44 @@ func (env *Env) ApplyTemplates(tplDefs []*def.Tpl, needDiscovery bool) error {
 	env.Lock()
 	env.tpls = append(env.tpls, tpls...)
 	env.Unlock()
+
+	if updateDiscovery {
+		body := map[string]interface{}{}
+
+		for _, cont := range containers {
+			body[fmt.Sprintf("%s.", cont.Hostname())] = hosts[cont.Hostname()]
+		}
+
+		bodyBytes, _ := json.Marshal(body)
+
+		cl := http.Client{
+			Timeout: 5 * time.Second,
+		}
+
+		env.RLock()
+
+		req, _ := http.NewRequest(
+			http.MethodPatch, env.discoverExternalAddress,
+			bytes.NewReader(bodyBytes))
+
+		env.RUnlock()
+
+		resp, err := cl.Do(req)
+
+		if err != nil {
+			return errors.Wrapf(err, "Error updating discovery agent")
+		} else {
+			_ = resp.Body.Close()
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return errors.Errorf(
+				"Expected code 200 from discovery agent but got: %d (%s)",
+				resp.StatusCode, resp.Status)
+		} else {
+			envLog.Debugf("[%s]: Discovery agent updated", env.id)
+		}
+	}
 
 	return nil
 }
