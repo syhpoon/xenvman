@@ -341,7 +341,7 @@ func (s *Server) patchEnvHandler(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	ApiSendMessage(w, http.StatusOK, "Env updated")
+	ApiSendData(w, http.StatusOK, e.Export())
 }
 
 func (s *Server) keepaliveEnvHandler(w http.ResponseWriter, req *http.Request) {

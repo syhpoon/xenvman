@@ -4,6 +4,7 @@
 * Added new `keepalive` configuration parameter to set default environment
   keepalive.
 * Improved support for docker private registry
+* Added support for dynamic environment reconfiguration: add, stop. restart containers on the fly
 
 # v1.0.0 (2018-12-12)
 

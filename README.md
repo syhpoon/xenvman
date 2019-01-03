@@ -95,6 +95,7 @@ xenvman can be used to:
 * Spawn as many containers as needed inside an environment
 * Link containers together in a single isolated network
 * Expose container ports for external access
+* Dynamically change environment composition (add, stop, restart containers) on the fly
 
 For a detailed example take a look at [tutorial](https://medium.com/@syhpoon/xenvman-tutorial-c9967ddefaae).
 
@@ -661,6 +662,18 @@ Update existing environment.
  
   // New templates to execute
   "templates" :: [tpl]
+}
+```
+
+### Response body
+
+```
+{
+  // Environment id
+  "id" :: string,
+
+  // Templates data
+  "templates" :: {name :: string -> [tpl-data]}
 }
 ```
 
