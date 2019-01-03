@@ -29,14 +29,14 @@ import "github.com/pkg/errors"
 type ContainerData struct {
 	// Container id
 	Id string `json:"id"`
-	// <internal port> -> "<host>:<external port>"
-	Ports map[int]string `json:"ports"`
+	// <internal port> -> <external port>
+	Ports map[int]int `json:"ports"`
 }
 
 func NewContainerData(id string) *ContainerData {
 	return &ContainerData{
 		Id:    id,
-		Ports: map[int]string{},
+		Ports: map[int]int{},
 	}
 }
 
@@ -46,8 +46,9 @@ type TplData struct {
 }
 
 type OutputEnv struct {
-	Id        string                `json:"id"`
-	Templates map[string][]*TplData `json:"templates"` // tpl name -> [TplData]
+	Id              string                `json:"id"`
+	ExternalAddress string                `json:"external_address"`
+	Templates       map[string][]*TplData `json:"templates"` // tpl name -> [TplData]
 }
 
 func (e *OutputEnv) GetContainer(tplName string, tplIdx int,

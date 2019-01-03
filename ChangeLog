@@ -5,6 +5,9 @@
   keepalive.
 * Improved support for docker private registry
 * Added support for dynamic environment reconfiguration: add, stop. restart containers on the fly
+* Backwared-incompatbile changes to format of the returned env structure:
+  export address has been moved into a separate top-level field,
+  `ports` object now contains direct mapping between internal and external ports
 
 # v1.0.0 (2018-12-12)
 

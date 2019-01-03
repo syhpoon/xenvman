@@ -545,6 +545,9 @@ func (env *Env) keepAliveWatchdog(dur def.Duration, ctx context.Context) {
 }
 
 func (env *Env) Export() *def.OutputEnv {
+	env.RLock()
+	defer env.RUnlock()
+
 	templates := map[string][]*def.TplData{}
 
 	for tplName, tpls := range env.ports {
@@ -560,8 +563,7 @@ func (env *Env) Export() *def.OutputEnv {
 				}
 
 				for ip, ep := range ps {
-					tpld.Containers[cont].Ports[int(ip)] = fmt.Sprintf("%s:%d",
-						env.params.ExportAddress, ep)
+					tpld.Containers[cont].Ports[int(ip)] = int(ep)
 				}
 			}
 
@@ -570,8 +572,9 @@ func (env *Env) Export() *def.OutputEnv {
 	}
 
 	return &def.OutputEnv{
-		Id:        env.id,
-		Templates: templates,
+		Id:              env.id,
+		ExternalAddress: env.params.ExportAddress,
+		Templates:       templates,
 	}
 }
 

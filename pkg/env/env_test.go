@@ -31,7 +31,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -241,21 +240,11 @@ func TestEnvOk(t *testing.T) {
 	// Make sure ports are properly exposed
 	exported := env.Export()
 
-	eb := exported.Templates["ok"][0].Containers[bcontName].Ports[bport]
-	ef := exported.Templates["ok"][0].Containers[fcontName].Ports[fport]
+	ebp := exported.Templates["ok"][0].Containers[bcontName].Ports[bport]
+	fbp := exported.Templates["ok"][0].Containers[fcontName].Ports[fport]
 
-	bsplit := strings.Split(eb, ":")
-	fsplit := strings.Split(ef, ":")
-
-	ebp, err := strconv.ParseInt(bsplit[1], 0, 16)
-	require.Nil(t, err)
-	fbp, err := strconv.ParseInt(bsplit[1], 0, 16)
-	require.Nil(t, err)
-
-	require.Equal(t, bsplit[0], "localhost")
+	require.Equal(t, exported.ExternalAddress, "localhost")
 	require.True(t, ebp >= 20000 && ebp <= 30000)
-
-	require.Equal(t, fsplit[0], "localhost")
 	require.True(t, fbp >= 20000 && fbp <= 30000)
 
 	// Make sure temporary files have been cleaned after Terminate
@@ -272,7 +261,8 @@ func TestEnvOk(t *testing.T) {
 	require.Empty(t, mountFiles)
 
 	require.NotNil(t, bcontRunParams)
-	require.Equal(t, bcontRunParams.Environ["INTERPOLATE-ME"], eb)
+	require.Equal(t, bcontRunParams.Environ["INTERPOLATE-ME"],
+		fmt.Sprintf("%s:%d", exported.ExternalAddress, ebp))
 	require.Equal(t, bcontRunParams.Environ["DONT-INTERPOLATE-ME"], "WUT")
 
 	// Mock assertion

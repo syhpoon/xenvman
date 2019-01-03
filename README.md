@@ -622,6 +622,9 @@ Create a new environment.
   // Environment id
   "id" :: string,
   
+  // External IP/hostname
+  "external_address" :: string,
+  
   // Templates data
   "templates" :: {name :: string -> [tpl-data]}
 }
@@ -640,9 +643,8 @@ Create a new environment.
 {
   // Unique container id
   "id"    :: string,
-  // container port to exposed address:port
-  // Exposed address contains public xenvman ip plus exposed container port
-  "ports" :: {port :: int -> string}
+  // Mapping between internal container port and corresponding external one
+  "ports" :: {port :: string -> int}
 }
 ```
 
@@ -671,6 +673,9 @@ Update existing environment.
 {
   // Environment id
   "id" :: string,
+
+  // External IP/hostname
+  "external_address" :: string,
 
   // Templates data
   "templates" :: {name :: string -> [tpl-data]}
