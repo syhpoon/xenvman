@@ -55,3 +55,16 @@ func (o Opts) GetInt(key string, def int) int {
 		return def
 	}
 }
+
+func (o Opts) GetObject(key string, def map[string]interface{}) map[string]interface{} {
+	if v, ok := o[key]; ok {
+		if objv, ok := v.(map[string]interface{}); !ok {
+			panic(errors.Errorf("Invalid type for opt %s, expected map[string]interface{} got %T",
+				key, v))
+		} else {
+			return objv
+		}
+	} else {
+		return def
+	}
+}

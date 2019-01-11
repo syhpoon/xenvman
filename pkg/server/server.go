@@ -22,13 +22,18 @@
  SOFTWARE.
 */
 
+//go:generate go-bindata -pkg server -o webapp.bindata.go -prefix webapp/dist webapp/dist/...
+
 package server
 
 import (
 	"context"
 	"net"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/syhpoon/xenvman/pkg/tpl"
 
 	"encoding/json"
 	"io/ioutil"
@@ -151,6 +156,14 @@ func (s *Server) setupHandlers() {
 		}
 	}
 
+	// GET /api/v1/env - List environments
+	s.router.HandleFunc("/api/v1/env", hf(s.listEnvsHandler)).
+		Methods(http.MethodGet)
+
+	// GET /api/v1/env/{id} - Getn environment info
+	s.router.HandleFunc("/api/v1/env/{id}", hf(s.getEnvHandler)).
+		Methods(http.MethodGet)
+
 	// POST /api/v1/env - Create a new environment
 	s.router.HandleFunc("/api/v1/env", hf(s.createEnvHandler)).
 		Methods(http.MethodPost)
@@ -167,18 +180,26 @@ func (s *Server) setupHandlers() {
 	s.router.HandleFunc("/api/v1/env/{id}/keepalive",
 		hf(s.keepaliveEnvHandler)).Methods(http.MethodPost)
 
+	// GET /api/v1/tpl - List templates
+	s.router.HandleFunc("/api/v1/tpl",
+		hf(s.listTplsHandler)).Methods(http.MethodGet)
+
 	// Prometheus metrics
 	s.router.Handle("/metrics", promhttp.Handler())
 
 	//TODO: API doc
 	//s.router.HandleFunc("/apidoc", s.handleRoot)
 
-	//TODO: Web UI on root?
-	//s.router.HandleFunc("/", s.handleRoot)
+	s.router.PathPrefix("/webapp/{path:.*}").HandlerFunc(s.webappHandler)
+	s.router.HandleFunc("/", s.redirectRootHandler)
+
+	s.router.Methods(http.MethodOptions).PathPrefix("/{path:.*}").
+		HandlerFunc(s.optionsHandler)
 }
 
 // Body: envDef structure
 func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
+	//noinspection GoUnhandledErrorResult
 	defer req.Body.Close()
 
 	body, err := ioutil.ReadAll(req.Body)
@@ -344,6 +365,38 @@ func (s *Server) patchEnvHandler(w http.ResponseWriter, req *http.Request) {
 	ApiSendData(w, http.StatusOK, e.Export())
 }
 
+func (s *Server) listEnvsHandler(w http.ResponseWriter, req *http.Request) {
+	//noinspection ALL
+	envs := []*def.OutputEnv{}
+
+	s.RLock()
+	for _, e := range s.envs {
+		envs = append(envs, e.Export())
+	}
+	s.RUnlock()
+
+	ApiSendData(w, http.StatusOK, envs)
+}
+
+func (s *Server) getEnvHandler(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	id := vars["id"]
+
+	s.RLock()
+	e, ok := s.envs[id]
+	s.RUnlock()
+
+	if !ok {
+		serverLog.Errorf("Env not found: %s", id)
+
+		ApiSendMessage(w, http.StatusNotFound, "Env not found")
+
+		return
+	}
+
+	ApiSendData(w, http.StatusOK, e.Export())
+}
+
 func (s *Server) keepaliveEnvHandler(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
@@ -377,4 +430,58 @@ func (s *Server) keepaliveEnvHandler(w http.ResponseWriter, req *http.Request) {
 	e.KeepAlive()
 
 	ApiSendMessage(w, http.StatusOK, "")
+}
+
+func (s *Server) listTplsHandler(w http.ResponseWriter, req *http.Request) {
+	res, err := tpl.LoadTemplatesInfo(s.params.BaseTplDir)
+
+	if err != nil {
+		serverLog.Errorf("Error loading templates info: %+v", err)
+
+		ApiSendMessage(w, http.StatusInternalServerError,
+			"Error loading templates info: %s", err)
+
+		return
+	}
+
+	ApiSendData(w, http.StatusOK, res)
+}
+
+func (s *Server) webappHandler(w http.ResponseWriter, req *http.Request) {
+	path := mux.Vars(req)["path"]
+	hdrs := http.Header{}
+	hdrs.Set("Content-Type", "text/html; charset=UTF-8")
+
+	if path == "" {
+		path = "index.html"
+	}
+
+	code := http.StatusOK
+	bytes, err := Asset(path)
+
+	if err == nil {
+		if strings.HasSuffix(path, ".css") {
+			hdrs.Set("Content-Type", "text/css")
+		} else if strings.HasSuffix(path, ".js") {
+			hdrs.Set("Content-Type", "application/javascript")
+		}
+	} else {
+		code = http.StatusNotFound
+	}
+
+	serverLog.Infof(`"%s %s %s" %d %d`, req.Method, req.URL.Path, req.Proto,
+		code, len(bytes))
+
+	_ = SendHttpResponse(w, code, hdrs, bytes)
+}
+
+func (s *Server) redirectRootHandler(w http.ResponseWriter, req *http.Request) {
+	http.Redirect(w, req, "/webapp/", http.StatusMovedPermanently)
+}
+
+func (s *Server) optionsHandler(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods",
+		"POST, GET, PATCH, PUT, DELETE")
 }

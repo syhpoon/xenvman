@@ -34,11 +34,17 @@ type interpolator struct {
 	containers      []*tpl.Container
 	ports           ports
 	ips             map[string]string
+	extra           map[string]interface{}
 }
 
 // Return a Container instance for the given template
 func (ip *interpolator) Self() *container {
 	return ip.self
+}
+
+// Return extra interpolation data
+func (ip *interpolator) Extra() map[string]interface{} {
+	return ip.extra
 }
 
 // Return an external address associated with xenvman api server

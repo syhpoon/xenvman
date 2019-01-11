@@ -54,18 +54,19 @@ func (img *Image) NewContainer(name string) *Container {
 	makeDir(mountDir)
 
 	cont := &Container{
-		envId:             img.envId,
-		tplName:           img.tplName,
-		tplIdx:            img.tplIdx,
-		name:              name,
-		image:             img.name,
-		environ:           map[string]string{},
-		mountDir:          mountDir,
-		dataDir:           img.dataDir,
-		labels:            map[string]string{},
-		needInterpolating: map[string]bool{},
-		fs:                img.fs,
-		ctx:               img.ctx,
+		envId:                img.envId,
+		tplName:              img.tplName,
+		tplIdx:               img.tplIdx,
+		name:                 name,
+		image:                img.name,
+		environ:              map[string]string{},
+		mountDir:             mountDir,
+		dataDir:              img.dataDir,
+		labels:               map[string]string{},
+		needInterpolating:    map[string]bool{},
+		extraInterpolateData: map[string]map[string]interface{}{},
+		fs:                   img.fs,
+		ctx:                  img.ctx,
 	}
 
 	imgLog.Debugf("[%s] Creating new container for %s, %s",

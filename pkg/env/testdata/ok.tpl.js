@@ -23,7 +23,15 @@ function execute(tpl, params) {
   bcont.SetPorts(params.bport);
   bcont.SetLabel("btest", params.blabel);
 
-  bcont.MountData("mount", "/mounted", {"interpolate": true});
+  bcont.MountData("mount", "/mounted",
+                  {
+                    "interpolate": true,
+                    "extra-interpolate-data": {
+                      "e1": {
+                        "key": params.extra_key
+                      }
+                    }
+                  });
 
   bcont.SetEnv("INTERPOLATE-ME",
                fmt("{{.ExternalAddress}}:{{.Self.ExposedPort %v}}",

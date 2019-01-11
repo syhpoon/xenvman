@@ -118,6 +118,7 @@ func (de *DockerEngine) CreateNetwork(ctx context.Context,
 	return r.ID, sub, nil
 }
 
+// Run Docker container
 func (de *DockerEngine) RunContainer(ctx context.Context, name, tag string,
 	params RunContainerParams) (string, error) {
 
@@ -195,6 +196,7 @@ func (de *DockerEngine) RunContainer(ctx context.Context, name, tag string,
 		ExposedPorts: ports,
 		Env:          environ,
 		Cmd:          params.Cmd,
+		Entrypoint:   params.Entrypoint,
 	}, hostCont, netConf, lib.NewIdShort())
 
 	if err != nil {

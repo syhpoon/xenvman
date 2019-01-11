@@ -99,6 +99,8 @@ func SendHttpResponse(w http.ResponseWriter, code int,
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	}
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
 	w.WriteHeader(code)
 
 	if body != nil {

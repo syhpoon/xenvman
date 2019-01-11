@@ -76,6 +76,8 @@ type Env struct {
 	params                  Params
 	tpls                    []*tpl.Tpl
 	tplIdx                  map[string]int
+	created                 time.Time
+	keepalive               time.Duration
 	sync.RWMutex
 }
 
@@ -109,6 +111,7 @@ func NewEnv(params Params) (env *Env, err error) {
 		containers:    map[string]*tpl.Container{},
 		contIds:       map[string][]map[string]string{},
 		tplIdx:        map[string]int{},
+		created:       time.Now(),
 	}
 
 	defer func() {
@@ -131,6 +134,8 @@ func NewEnv(params Params) (env *Env, err error) {
 			keepalive = params.EnvDef.Options.KeepAlive
 		}
 	}
+
+	env.keepalive = keepalive.ToDuration()
 
 	if err := env.ApplyTemplates(
 		env.params.EnvDef.Templates, needDiscovery, false); err != nil {
@@ -254,7 +259,9 @@ func (env *Env) interpolate(cont *tpl.Container, ports map[uint16]uint16,
 	}
 
 	// Files
-	for _, file := range cont.ToInterpolate() {
+	intrplFiles, intrplData := cont.ToInterpolate()
+
+	for _, file := range intrplFiles {
 		// Get file mode
 		info, err := os.Stat(file)
 
@@ -266,6 +273,12 @@ func (env *Env) interpolate(cont *tpl.Container, ports map[uint16]uint16,
 
 		if err != nil {
 			return errors.Wrapf(err, "Error reading file %s", file)
+		}
+
+		if extra, ok := intrplData[file]; ok {
+			i.extra = extra
+		} else {
+			i.extra = nil
 		}
 
 		res, err := lib.Interpolate(string(data), i)
@@ -558,8 +571,10 @@ func (env *Env) Export() *def.OutputEnv {
 
 			for cont, ps := range t {
 				if _, ok := tpld.Containers[cont]; !ok {
+					cid := env.contIds[tplName][idx][cont]
+
 					tpld.Containers[cont] = def.NewContainerData(
-						env.contIds[tplName][idx][cont])
+						cid, env.containers[cid].Hostname())
 				}
 
 				for ip, ep := range ps {
@@ -573,6 +588,13 @@ func (env *Env) Export() *def.OutputEnv {
 
 	return &def.OutputEnv{
 		Id:              env.id,
+		Name:            env.params.EnvDef.Name,
+		Description:     env.params.EnvDef.Description,
+		WsDir:           env.wsDir,
+		MountDir:        env.mountDir,
+		NetId:           env.netId,
+		Created:         env.created.Format(time.RFC3339),
+		Keepalive:       env.keepalive.String(),
 		ExternalAddress: env.params.ExportAddress,
 		Templates:       templates,
 	}
@@ -827,6 +849,7 @@ func (env *Env) ApplyTemplates(tplDefs []*def.Tpl,
 			Ports:      cports[cont.Hostname()],
 			Environ:    cont.Environ(),
 			Cmd:        cont.Cmd(),
+			Entrypoint: cont.Entrypoint(),
 			FileMounts: cont.Mounts(),
 		}
 

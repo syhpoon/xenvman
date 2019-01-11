@@ -45,6 +45,7 @@ type RunContainerParams struct {
 	Ports       map[uint16]uint16 // container port -> host port
 	Environ     map[string]string
 	Cmd         []string
+	Entrypoint  []string
 	FileMounts  []*ContainerFileMount
 }
 

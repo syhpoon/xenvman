@@ -1,21 +1,28 @@
-// Available params:
-// init  :: init - Database initialization queries
-//
-// Types:
-// init :: {"<db>": {"<collection>": ["<document>"]}}
+function info() {
+  return {
+    "description": "MongoDB template",
+    "parameters": {
+      "init": {
+        "description": "DB initialization queries",
+        "type": "{\"<db>\": {\"<collection>\": [\"<document>\"]}}",
+        "mandatory": false,
+      }
+    }
+  };
+}
 
 function execute(tpl, params) {
   var queries = [];
 
-  for(var db in params.init) {
+  for (var db in params.init) {
     var dbdata = params.init[db];
 
     queries.push(fmt('db = db.getSiblingDB("%s");', db));
 
-    for(var col in dbdata) {
+    for (var col in dbdata) {
       var qs = dbdata[col];
 
-      for(var i=0; i < qs.length; i++) {
+      for (var i = 0; i < qs.length; i++) {
         queries.push(fmt("db.%s.insert(%s);", col, qs[i]));
       }
     }

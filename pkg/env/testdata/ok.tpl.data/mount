@@ -1,3 +1,4 @@
 {{- with .ContainerWithLabel "btest" "" -}}
 {{.Hostname}}
-{{- end -}}
+{{- end}}
+>>>{{.Extra.e1.key}}<<<

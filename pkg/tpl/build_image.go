@@ -87,6 +87,8 @@ func (img *BuildImage) AddFileToWorkspace(file string, data interface{}, mode in
 			errors.Errorf("Invalid file data type %T, expected bytes or string", data))
 	}
 
+	_ = os.MkdirAll(filepath.Dir(path), 0755)
+
 	if err := ioutil.WriteFile(path, bs, os.FileMode(mode)); err != nil {
 		panic(errors.Wrapf(err, "Error copying file %s", file))
 	}

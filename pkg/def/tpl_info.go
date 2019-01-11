@@ -24,48 +24,14 @@
 
 package def
 
-import (
-	"encoding/json"
-	"time"
-
-	"github.com/pkg/errors"
-)
-
-type Duration time.Duration
-
-func (d Duration) MarshalJSON() ([]byte, error) {
-	return json.Marshal(time.Duration(d))
+type TplInfoParam struct {
+	Description string      `json:"description,omitempty" mapstructure:"description"`
+	Type        string      `json:"type,omitempty" mapstructure:"type"`
+	Mandatory   bool        `json:"mandatory,omitempty" mapstructure:"mandatory"`
+	Default     interface{} `json:"default,omitempty" mapstructure:"default"`
 }
 
-func (d Duration) String() string {
-	return time.Duration(d).String()
-}
-
-func (d Duration) ToDuration() time.Duration {
-	return time.Duration(d)
-}
-
-func (d *Duration) UnmarshalJSON(b []byte) error {
-	var v interface{}
-	if err := json.Unmarshal(b, &v); err != nil {
-		return err
-	}
-	switch value := v.(type) {
-	case float64:
-		*d = Duration(time.Duration(value))
-
-		return nil
-	case string:
-		tmp, err := time.ParseDuration(value)
-
-		if err != nil {
-			return err
-		}
-
-		*d = Duration(tmp)
-
-		return nil
-	default:
-		return errors.New("invalid duration")
-	}
+type TplInfo struct {
+	Description string                   `json:"description,omitempty" mapstructure:"description"`
+	Parameters  map[string]*TplInfoParam `json:"parameters,omitempty" mapstructure:"parameters"`
 }

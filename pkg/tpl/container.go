@@ -27,11 +27,10 @@ package tpl
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
-
 	"io/ioutil"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/syhpoon/xenvman/pkg/conteng"
@@ -44,32 +43,35 @@ var contLog = logger.GetLogger("xenvman.pkg.tpl.container")
 const serviceDomain = "xenv"
 
 type Container struct {
-	envId             string
-	tplName           string
-	tplIdx            int
-	name              string
-	image             string
-	cmd               []string
-	ports             []uint16
-	dataDir           string
-	mountDir          string
-	mounts            []*conteng.ContainerFileMount
-	environ           map[string]string
-	labels            map[string]string
-	needInterpolating map[string]bool
-	readinessChecks   []ReadinessCheck
-	fs                *Fs
-	ctx               context.Context
+	envId                string
+	tplName              string
+	tplIdx               int
+	name                 string
+	image                string
+	cmd                  []string
+	entrypoint           []string
+	ports                []uint16
+	dataDir              string
+	mountDir             string
+	mounts               []*conteng.ContainerFileMount
+	environ              map[string]string
+	labels               map[string]string
+	needInterpolating    map[string]bool
+	extraInterpolateData map[string]map[string]interface{}
+	readinessChecks      []ReadinessCheck
+	fs                   *Fs
+	ctx                  context.Context
 }
 
 func NewContainer(name, tplName string, tplIdx int) *Container {
 	return &Container{
-		tplName:           tplName,
-		tplIdx:            tplIdx,
-		name:              name,
-		environ:           map[string]string{},
-		labels:            map[string]string{},
-		needInterpolating: map[string]bool{},
+		tplName:              tplName,
+		tplIdx:               tplIdx,
+		name:                 name,
+		environ:              map[string]string{},
+		labels:               map[string]string{},
+		needInterpolating:    map[string]bool{},
+		extraInterpolateData: map[string]map[string]interface{}{},
 	}
 }
 
@@ -96,6 +98,11 @@ func (cont *Container) SetLabel(k string, v interface{}) {
 func (cont *Container) SetCmd(cmd ...string) {
 	checkCancelled(cont.ctx)
 	cont.cmd = cmd
+}
+
+func (cont *Container) SetEntrypoint(ep ...string) {
+	checkCancelled(cont.ctx)
+	cont.entrypoint = ep
 }
 
 func (cont *Container) SetPorts(ports ...uint16) {
@@ -127,18 +134,25 @@ func (cont *Container) GetLabel(label string) string {
 	return cont.labels[label]
 }
 
-func (cont *Container) ToInterpolate() []string {
+func (cont *Container) ToInterpolate() ([]string, map[string]map[string]interface{}) {
 	var r []string
+	extra := map[string]map[string]interface{}{}
 
 	for k := range cont.needInterpolating {
 		r = append(r, k)
+		extra[k] = cont.extraInterpolateData[k]
 	}
 
-	return r
+	return r, extra
 }
 
 func (cont *Container) Cmd() []string {
 	return cont.cmd
+}
+
+// Retyrn container entrypoint
+func (cont *Container) Entrypoint() []string {
+	return cont.entrypoint
 }
 
 func (cont *Container) Mounts() []*conteng.ContainerFileMount {
@@ -201,6 +215,7 @@ func (cont *Container) doMount(hostFile, contFile string, opts Opts) {
 
 	if opts.GetBool("interpolate", false) {
 		cont.needInterpolating[hostFile] = true
+		cont.extraInterpolateData[hostFile] = opts.GetObject("extra-interpolate-data", nil)
 	}
 }
 

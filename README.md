@@ -449,7 +449,7 @@ This function sets a container label. Labels here are `xenvman` entity
 and are used later during [interpolation](#Interpolation) in order
 to filter containers.
 
-#### SetCmd(cmd :: string) -> null
+#### SetCmd(cmd :: string...) -> null
 
 Sets a [`CMD`](https://docs.docker.com/engine/reference/builder/#cmd) for the container.
 
@@ -517,6 +517,20 @@ Availalable parameters include:
 	                      Values from different objects are matched in
 	                      a disjunctive way (OR).
 * `body` :: string - A regexp to match response body against.
+* `retry_limit` :: int - How many times to retry a check before giving up.
+* `retry_interval` :: string - How long to wait between retrying.
+                               String must follow Golang [`fmt.Duration`](https://golang.org/pkg/time/#ParseDuration) format.
+
+#### net
+
+A simple low-level network readiness check.
+`protocol` and `address` parametes must be formatted according to
+Golang [`net.Dial`](https://golang.org/pkg/net/#Dial) function.
+
+Availalable parameters include:
+
+* `protocol` :: string - Network protocol 
+* `address` :: string - Address string
 * `retry_limit` :: int - How many times to retry a check before giving up.
 * `retry_interval` :: string - How long to wait between retrying.
                                String must follow Golang [`fmt.Duration`](https://golang.org/pkg/time/#ParseDuration) format.

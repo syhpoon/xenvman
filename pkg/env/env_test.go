@@ -152,6 +152,7 @@ func TestEnvOk(t *testing.T) {
 
 	envName := "test"
 	tplName := "ok"
+	extraKey := "WUT-WAT"
 
 	env, err := NewEnv(Params{
 		EnvDef: &def.InputEnv{
@@ -170,6 +171,7 @@ func TestEnvOk(t *testing.T) {
 						"blabel":     blabel,
 						"binary":     binary,
 						"rport":      readinessPort,
+						"extra_key":  extraKey,
 					},
 				},
 			},
@@ -232,8 +234,8 @@ func TestEnvOk(t *testing.T) {
 
 	bytes, err = ioutil.ReadFile(mountF[0])
 	require.Nil(t, err)
-	require.Equal(t, string(bytes),
-		fmt.Sprintf("%s.0.%s.xenv", bcontName, tplName))
+	require.Equal(t, fmt.Sprintf("%s.0.%s.xenv\n>>>WUT-WAT<<<\n", bcontName, tplName),
+		string(bytes))
 
 	env.KeepAlive()
 

@@ -24,19 +24,22 @@
 
 package def
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+)
 
 type ContainerData struct {
-	// Container id
-	Id string `json:"id"`
+	Id       string `json:"id"`
+	Hostname string `json:"hostname"`
 	// <internal port> -> <external port>
 	Ports map[int]int `json:"ports"`
 }
 
-func NewContainerData(id string) *ContainerData {
+func NewContainerData(id, hostname string) *ContainerData {
 	return &ContainerData{
-		Id:    id,
-		Ports: map[int]int{},
+		Id:       id,
+		Hostname: hostname,
+		Ports:    map[int]int{},
 	}
 }
 
@@ -47,6 +50,13 @@ type TplData struct {
 
 type OutputEnv struct {
 	Id              string                `json:"id"`
+	Name            string                `json:"name"`
+	Description     string                `json:"description"`
+	WsDir           string                `json:"ws_dir"`
+	MountDir        string                `json:"mount_dir"`
+	NetId           string                `json:"net_id"`
+	Created         string                `json:"created"`
+	Keepalive       string                `json:"keep_alive"`
 	ExternalAddress string                `json:"external_address"`
 	Templates       map[string][]*TplData `json:"templates"` // tpl name -> [TplData]
 }
