@@ -242,8 +242,8 @@ func TestEnvOk(t *testing.T) {
 	// Make sure ports are properly exposed
 	exported := env.Export()
 
-	ebp := exported.Templates["ok"][0].Containers[bcontName].Ports[bport]
-	fbp := exported.Templates["ok"][0].Containers[fcontName].Ports[fport]
+	ebp := exported.Templates["ok"][0].Containers[bcontName].Ports[fmt.Sprintf("%d", bport)]
+	fbp := exported.Templates["ok"][0].Containers[fcontName].Ports[fmt.Sprintf("%d", fport)]
 
 	require.Equal(t, exported.ExternalAddress, "localhost")
 	require.True(t, ebp >= 20000 && ebp <= 30000)

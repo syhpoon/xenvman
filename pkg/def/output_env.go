@@ -32,14 +32,14 @@ type ContainerData struct {
 	Id       string `json:"id"`
 	Hostname string `json:"hostname"`
 	// <internal port> -> <external port>
-	Ports map[int]int `json:"ports"`
+	Ports map[string]int `json:"ports"`
 }
 
 func NewContainerData(id, hostname string) *ContainerData {
 	return &ContainerData{
 		Id:       id,
 		Hostname: hostname,
-		Ports:    map[int]int{},
+		Ports:    map[string]int{},
 	}
 }
 

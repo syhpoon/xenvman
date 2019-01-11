@@ -578,7 +578,7 @@ func (env *Env) Export() *def.OutputEnv {
 				}
 
 				for ip, ep := range ps {
-					tpld.Containers[cont].Ports[int(ip)] = int(ep)
+					tpld.Containers[cont].Ports[fmt.Sprintf("%d", ip)] = int(ep)
 				}
 			}
 
