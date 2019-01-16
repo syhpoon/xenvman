@@ -80,10 +80,8 @@
 
     methods: {
       deleteEnv(id) {
-        //TODO
-        //fetch(`/api/v1/env/${id}`)
-        fetch(`http://localhost:9876/api/v1/env/${id}`, {method: "DELETE"})
-          .then(_ => this.fetchEnvs())
+        fetch(`/api/v1/env/${id}`, {method: "DELETE"})
+          .then(this.fetchEnvs)
           .catch(error => {
             this.showError(`Error deleting environment: ${error.toString()}`)
           })
@@ -104,9 +102,7 @@
       },
 
       fetchEnvs() {
-        //TODO:
-        //fetch('/api/v1/env')
-        fetch('http://localhost:9876/api/v1/env')
+        fetch('/api/v1/env')
           .then(stream => stream.json())
           .then(data => {
             this.clearError();

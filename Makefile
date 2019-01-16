@@ -22,6 +22,9 @@ cover:
 vet:
 	@mk/go-tool.sh "go vet" Vetting
 
+webapp:
+	@mk/build-webapp.sh
+
 prepare: fmt test vet
 
 release:

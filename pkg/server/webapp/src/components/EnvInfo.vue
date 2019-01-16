@@ -18,7 +18,7 @@
 
       <v-card>
          <div class="table-responsive">
-            <table id="env-info-table">
+            <table class="info-table">
                <tbody>
                <tr>
                   <td>Id</td>
@@ -88,8 +88,7 @@
     mounted() {
       const id = this.$route.params.id;
 
-      //TODO
-      fetch(`http://localhost:9876/api/v1/env/${id}`)
+      fetch(`/api/v1/env/${id}`)
         .then(stream => stream.json())
         .then(data => {
           this.env = this.$root.$data.parseEnv(data.data);
@@ -114,30 +113,4 @@
 </script>
 
 <style>
-   #env-info-table {
-      font-family: "Roboto", Arial, Helvetica, sans-serif;
-      border-collapse: collapse;
-      width: 100%;
-   }
-
-   #env-info-table td {
-      border: 1px solid #ddd;
-      padding: 8px;
-   }
-
-   #env-info-table tr:nth-child(even) {
-      background-color: #f2f2f2;
-   }
-
-   #env-info-table tr:hover {
-      background-color: #ddd;
-   }
-
-   #customers td {
-      padding-top: 12px;
-      padding-bottom: 12px;
-      text-align: left;
-      background-color: #4CAF50;
-      color: white;
-   }
 </style>

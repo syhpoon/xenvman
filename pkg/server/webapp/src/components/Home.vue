@@ -1,23 +1,23 @@
 <template>
    <div>
-      <v-tabs v-model="active">
+      <v-tabs>
 
-         <v-tab :key="envs" ripple>
+         <v-tab ripple>
             Environments
          </v-tab>
 
-         <v-tab :key="tpls" ripple>
+         <v-tab ripple>
             Templates
          </v-tab>
 
          <!-- Environments list -->
-         <v-tab-item :key="envs">
+         <v-tab-item>
             <EnvBrowser/>
          </v-tab-item>
 
          <!-- Templates browser -->
-         <v-tab-item :key="tpls">
-            TPLS!
+         <v-tab-item>
+            <TplBrowser/>
          </v-tab-item>
 
       </v-tabs>
@@ -26,15 +26,16 @@
 
 <script>
   import EnvBrowser from './EnvBrowser'
+  import TplBrowser from './TplBrowser'
 
   export default {
     components: {
       EnvBrowser,
+      TplBrowser,
     },
     data: () => ({})
   }
 </script>
 
 <style>
-
 </style>

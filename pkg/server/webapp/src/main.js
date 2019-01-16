@@ -6,6 +6,7 @@ import EnvInfo from './components/EnvInfo'
 import Home from './components/Home'
 
 import './plugins/vuetify'
+import './assets/css/main.css'
 
 Vue.config.productionTip = false;
 

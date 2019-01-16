@@ -34,4 +34,5 @@ type TplInfoParam struct {
 type TplInfo struct {
 	Description string                   `json:"description,omitempty" mapstructure:"description"`
 	Parameters  map[string]*TplInfoParam `json:"parameters,omitempty" mapstructure:"parameters"`
+	DataDir     []string                 `json:"data_dir" mapstructure:"data_dir"`
 }

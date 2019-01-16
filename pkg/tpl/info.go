@@ -30,12 +30,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/syhpoon/xenvman/pkg/def"
-
 	"github.com/mitchellh/mapstructure"
-	"github.com/robertkrimen/otto"
-
 	"github.com/pkg/errors"
+	"github.com/robertkrimen/otto"
+	"github.com/syhpoon/xenvman/pkg/def"
 )
 
 const infoFunctionName = "info"
@@ -57,7 +55,6 @@ func LoadTemplatesInfo(baseDir string) (map[string]*def.TplInfo, error) {
 		return nil, errors.Wrapf(err, "Error scanning tpl directory")
 	}
 
-	vm := otto.New()
 	res := map[string]*def.TplInfo{}
 
 	for _, tpl := range tpls {
@@ -67,10 +64,17 @@ func LoadTemplatesInfo(baseDir string) (map[string]*def.TplInfo, error) {
 			return nil, errors.Wrapf(err, "Error reading tpl %s", tpl)
 		}
 
+		vm := otto.New()
+
 		_, err = vm.Run(bytes)
 
 		if err != nil {
 			return nil, errors.Wrap(err, "Error executing tpl")
+		}
+
+		if ifunc, err := vm.Get(infoFunctionName); err != nil ||
+			ifunc.IsUndefined() {
+			continue
 		}
 
 		rawInfo, err := vm.Call(infoFunctionName, nil)
@@ -91,14 +95,46 @@ func LoadTemplatesInfo(baseDir string) (map[string]*def.TplInfo, error) {
 			return nil, errors.Errorf("Expected info map to be object but got: %T", rawInfo2)
 		}
 
-		info := def.TplInfo{}
+		info := def.TplInfo{
+			DataDir: []string{},
+		}
 
 		if err := mapstructure.Decode(infoMap, &info); err != nil {
 			return nil, errors.Wrap(err, "Error decoding info map")
 		}
 
-		res[tpl] = &info
+		f := strings.TrimPrefix(tpl, baseDir)
+		f = strings.TrimSuffix(f, ".tpl.js")
+
+		for strings.HasPrefix(f, "/") {
+			f = strings.TrimPrefix(f, "/")
+		}
+
+		// Check if a template has non-empty data dir
+		dataDir := strings.TrimSuffix(tpl, ".js") + ".data/"
+
+		if _, err := os.Stat(dataDir); err == nil {
+			info.DataDir = loadDataDir(dataDir)
+		}
+
+		res[f] = &info
 	}
 
 	return res, nil
+}
+
+func loadDataDir(dataDir string) []string {
+	var files []string
+
+	f := func(path string, info os.FileInfo, err error) error {
+		if path != dataDir {
+			files = append(files, strings.TrimPrefix(path, dataDir))
+		}
+
+		return nil
+	}
+
+	_ = filepath.Walk(dataDir, f)
+
+	return files
 }

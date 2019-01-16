@@ -4,8 +4,8 @@ function info() {
     "parameters": {
       "init": {
         "description": "DB initialization queries",
-        "type": "{\"<db>\": {\"<collection>\": [\"<document>\"]}}",
-        "mandatory": false,
+        "type": "{\"db\": {\"collection\": [\"document\"]}}",
+        "mandatory": false
       }
     }
   };
