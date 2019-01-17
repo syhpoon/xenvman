@@ -27,6 +27,7 @@
            :headers="headers"
            :items="environments"
            :pagination.sync="pagination"
+           no-data-text="No environments are currently running"
            class="elevation-1">
 
          <template slot="items" slot-scope="props">

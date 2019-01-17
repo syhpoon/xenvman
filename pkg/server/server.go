@@ -160,7 +160,7 @@ func (s *Server) setupHandlers() {
 	s.router.HandleFunc("/api/v1/env", hf(s.listEnvsHandler)).
 		Methods(http.MethodGet)
 
-	// GET /api/v1/env/{id} - Getn environment info
+	// GET /api/v1/env/{id} - Get environment info
 	s.router.HandleFunc("/api/v1/env/{id}", hf(s.getEnvHandler)).
 		Methods(http.MethodGet)
 

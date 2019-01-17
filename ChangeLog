@@ -4,15 +4,24 @@
 * Added new `keepalive` configuration parameter to set default environment
   keepalive.
 * Improved support for docker private registry
-* Added support for dynamic environment reconfiguration: add, stop. restart containers on the fly
-* HTTP API: Backwared-incompatbile changes to format of the returned env structure:
-  export address has been moved into a separate top-level field,
-  `ports` object now contains direct mapping between internal and external ports
-* HTTP API: New endpoints: TODO
-* TPL JS: <container>.MountData() now accepts `extra-interpolate-data` parameter
-  which allows passing custom interpolation data. It is accessible under
-  `.Extra` key.
+* Added support for dynamic environment reconfiguration: add, stop, restart containers on the fly
+* HTTP API: Backwared-incompatbile changes to format of the
+  returned env structure:
+  * export address has been moved into a separate top-level field
+  * `ports` object now contains direct mapping between internal
+    and external ports
+* HTTP API: New endpoints:
+  * `GET /api/v1/env` - List environments
+  * `GET /api/v1/env/{id}` - Get environment info
+  * `PATCH /api/v1/env/{id}` - Patch an environment
+  * `GET /api/v1/tpl` - List templates
+* TPL JS: <container>.`MountData()` and `MountString()` now accept `extra-interpolate-data`
+  parameter which allows passing custom interpolation data.
+  It is accessible under `.Extra` key.
 * TPL JS: Added a new <container>.`SetEntrypoint()` method
+* A simple web application has been integrated into xenvman server.
+  It allows one to list and manage active environments and browse
+  through available templates.
 
 # v1.0.0 (2018-12-12)
 

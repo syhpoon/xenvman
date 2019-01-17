@@ -47,12 +47,14 @@ Table of Contents
          * [Container API](#container-api)
             * [SetEnv(env, val :: string) -&gt; null](#setenvenv-val--string---null)
             * [SetLabel(key :: string, value :: {string, number}) -&gt; null](#setlabelkey--string-value--string-number---null)
-            * [SetCmd(cmd :: string) -&gt; null](#setcmdcmd--string---null)
+            * [SetCmd(cmd :: string...) -&gt; null](#setcmdcmd--string---null)
+            * [SetEntrypoint(cmd :: string...) -&gt; null](#setentrypointcmd--string---null)
             * [SetPorts(port :: number...) -&gt; null](#setportsport--number---null)
             * [MountString(data, contFile :: string, mode :: int, opts :: object) -&gt; null](#mountstringdata-contfile--string-mode--int-opts--object---null)
             * [MountData(dataFile, contFile :: string, opts :: object) -&gt; null](#mountdatadatafile-contfile--string-opts--object---null)
          * [Readiness checks](#readiness-checks)
             * [http](#http)
+            * [net](#net)
          * [Helper JS functions](#helper-js-functions)
             * [fmt(format :: string, args :: any...)](#fmtformat--string-args--any)
             * [type](#type)
@@ -74,13 +76,18 @@ Table of Contents
          * [Response body](#response-body)
             * [tpl-data](#tpl-data)
             * [container-data](#container-data)
+      * [PATCH /api/v1/env/{id}](#patch-apiv1envid)
+         * [Body](#body-1)
+         * [Response body](#response-body-1)
       * [DELETE /api/v1/env/{id}](#delete-apiv1envid)
          * [Query parameters](#query-parameters)
       * [POST /api/v1/env/{id}/keepalive](#post-apiv1envidkeepalive)
    * [Dynamic discovery](#dynamic-discovery)
+   * [Dynamic environment reconfiguration](#dynamic-environment-reconfiguration)
+   * [Web UI](#web-ui)
    * [Clients](#clients)
       * [Golang](#golang)
-      
+
 # Overview
 
 `xenvman` is an extensible environment manager which is used to
@@ -453,6 +460,10 @@ to filter containers.
 
 Sets a [`CMD`](https://docs.docker.com/engine/reference/builder/#cmd) for the container.
 
+#### SetEntrypoint(cmd :: string...) -> null
+
+Sets an [`ENTRYPOINT`](https://docs.docker.com/engine/reference/builder/#entrypoint) for the container.
+
 #### SetPorts(port :: number...) -> null
 
 Instructs `xenvman` to expose certain ports from the container.
@@ -469,6 +480,10 @@ under the `contFile` name.
 * `readonly` :: bool - If mounted file should be read only.
 * `interpolate` :: bool - If the contents of a mounted file needs to be
                           interpolated.
+* `extra-interpolate-data` :: object - Additional interpolation data.
+                                       The data is accessible under
+                                       `.Extra` key of a container
+                                       instance inside templates.
 
 #### MountData(dataFile, contFile :: string, opts :: object) -> null
 
@@ -712,6 +727,46 @@ A client needs to periodicall call this endpoint in order to keep
 the environemnt running.
 
 # Dynamic discovery
+
+In the version `v2.0.0` a new dynamic discovery agent has been introduced.
+It is basically a simple DNS proxy configurable over HTTP which
+all the containers running inside an environment are configured to use.
+This allows us to dynamicall re-configure environment on-the-fly,
+add/update/stop containers and make sure newly added containers can 
+be discovered by the old ones.
+
+The discovery agent is injected as just any another template and
+a [tiny image from docker hub](https://hub.docker.com/r/syhpoon/xenvman)
+is fetched with size of about 8 mb. 
+This template creates a single container with a running agent.
+The hostname of the container is `discovery.0.discovery.xenv` and
+it exposes port `8080` over which it is configured later by
+`xenvman` server.
+
+You can disable this feature and opt in for static DNS config by
+setting `disable_discovery=true` [env option](#env_options).
+If you do this though, you will not be able to dynamically
+change the environment composition (add/stop containers)
+after it has started.
+
+By default discovery agent is enabled.
+
+The following picture illustrates these two different approaches:
+
+![Static vs Dynamic DNS configuration](docs/img/discovery_agent.png)
+
+# Dynamic environment reconfiguration
+
+Starting from version `v2.0.0` it is possible to change environment
+composition while it is running. One can stop existing containers 
+(perhaps to emulate network split) or inject new templates and
+introduce new containers (peers arrival). A new API endpoint
+have been added for this purpose: `PATCH /api/v1/env/{id}`.
+
+`Please note:` the environment reconfiguration is only available if
+[dynamic agent](#dynamic-discovery) has not been disabled.
+
+# Web UI
 TODO
 
 # Clients
