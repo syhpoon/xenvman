@@ -599,83 +599,33 @@ TODO
 
 `xenvman` exposes all its functionality using HTTP API.
 
+## GET /api/v1/env
+
+List active environments.
+
+### Response body
+
+[[OutputEnv]](#outputenv)
+
 ## POST /api/v1/env
 
 Create a new environment.
 
 ### Body
 
-```
-{
-  // Environment name
-  "name" :: string,
- 
-  // Environment description
-  "description" :: string,
- 
-  // Templates to use
-  "templates" :: [tpl]
-
-  // Additional env options
-  "options" :: env_options
-}
-```
-
-#### tpl
-```
-{
-  // Template name (a path relative to xenvman base template dir)
-  "tpl" :: string,
-  
-  // Template parameters as arbitrary JSON object
-  "parameters" :: object 
-}
-```
-
-#### env_options
-```
-{
-  // Environment keep alive setting
-  "keep_alive" :: string,
-  
-  // Whether to disable dynamic discovery DNS agent and revert back to static
-  // hostnames
-  "disable_discovery" :: bool
-}
-```
+[InputEnv](#inputenv)
 
 ### Response body
 
-```
-{
-  // Environment id
-  "id" :: string,
-  
-  // External IP/hostname
-  "external_address" :: string,
-  
-  // Templates data
-  "templates" :: {name :: string -> [tpl-data]}
-}
-```
+[OutputEnv](#outputenv)
 
-#### tpl-data
-```
-{
-  // Template containers
-  "containers" :: {name :: string -> [container-data]}
-}
-```
+## GET /api/v1/env/{id}
 
-#### container-data
-```
-{
-  // Unique container id
-  "id"    :: string,
-  // Mapping between internal container port and corresponding external one
-  "ports" :: {port :: string -> int}
-}
-```
+Get environment info.
+
+### Response body
+
+[OutputEnv](#outputenv)
 
 ## PATCH /api/v1/env/{id}
 
@@ -683,33 +633,11 @@ Update existing environment.
 
 ### Body
 
-```
-{
-  // A list of fully-qualified container names to stop
-  "stop_containers" :: [string],
-  
-  // A list of fully-qualified container names to restart
-  "start_containers" :: [string],
- 
-  // New templates to execute
-  "templates" :: [tpl]
-}
-```
+[PatchEnv](#patchenv)
 
 ### Response body
 
-```
-{
-  // Environment id
-  "id" :: string,
-
-  // External IP/hostname
-  "external_address" :: string,
-
-  // Templates data
-  "templates" :: {name :: string -> [tpl-data]}
-}
-```
+[OutputEnv](#outputenv)
 
 ## DELETE /api/v1/env/{id}
 
@@ -723,8 +651,155 @@ Delete an environment.
 
 Keep alive an environment.
 
-A client needs to periodicall call this endpoint in order to keep
-the environemnt running.
+A client can periodicall call this endpoint in order to keep
+the environment running. Otherwise an environment will be terminated
+after the configured keepalive interval.
+
+## GET /api/v1/tpl
+
+Get templates info.
+
+### Response body
+```{name: string -> TplInfo}```
+
+## Types
+
+### InputEnv
+```
+{
+   // Environment name
+   name: string,
+ 
+   // Environment description
+   description: string,
+ 
+   // Templates to use
+   templates: [InputTpl]
+
+   // Additional env options
+   options: InputEnvOptions
+}
+```
+
+### InputEnvOptions
+```
+{
+  // Environment keep alive setting
+  keep_alive: string,
+  
+  // Whether to disable dynamic discovery DNS agent and revert back to static
+  // hostnames
+  disable_discovery: bool
+}
+```
+
+### OutputEnv
+```
+{
+    // Environment id
+	id: string,
+	
+    // Environment name
+    name: string,
+    
+    // Environment description
+    description: string,
+    
+    // Workspace directory
+    ws_dir: string,
+    
+    // Mount directory
+    mount_dir: string,
+    
+    // Container engine network id for the environment
+    net_id: string,
+    
+    // Creation time
+    created: string,
+    
+    // Environment keep alive setting
+    keep_alive: string,
+    
+    // External address (hostname or IP) of the xenvman server
+    external_address: string,
+    
+    // Templates data
+    templates: {name: string -> [TplData]}
+}
+```
+
+### PatchEnv
+
+```
+{
+   // A list of fully-qualified container names to stop
+   stop_containers: [string],
+  
+   // A list of fully-qualified container names to restart
+   start_containers: [string],
+ 
+   // New templates to execute
+   templates: [InputTpl]
+}
+```
+
+### InputTpl
+```
+{
+  // Template name (a path relative to xenvman base template dir)
+  tpl: string,
+  
+  // Template parameters as arbitrary JSON object
+  parameters: object 
+}
+```
+
+### TplData
+```
+{
+   // Template containers
+   containers: {name: string -> [ContainerData]}
+}
+```
+
+### ContainerData
+```
+{
+   // Unique container id
+   id: string,
+   // Internal container hostname
+   hostname: string,
+   // Mapping between internal container port and corresponding external one
+   ports: {port: string -> int}
+}
+```
+
+### TplInfo
+```
+   // Template description
+   description: string,
+   
+   // Template parameters
+   parameters: {name: string -> TplInfoParam},
+   
+   // List of files in template data directory
+   data_dir: [string]
+```
+
+### TplInfoParam
+```
+   // Parameter description
+   description: string,
+   
+   // Parameter type
+   type: string,
+   
+   // Whether a parameter is mandatory
+   mandatory: bool,
+   
+   // Default value
+   default: any,
+```
 
 # Dynamic discovery
 
@@ -767,7 +842,27 @@ have been added for this purpose: `PATCH /api/v1/env/{id}`.
 [dynamic agent](#dynamic-discovery) has not been disabled.
 
 # Web UI
-TODO
+
+Starting from version `v2.0.0` xenman has a simple embedded web application.
+It can be used to:
+
+* Inspect currently running environments
+* Terminate an environment
+* Browse through all available templates
+* Inspect invidual templates and its parameters
+
+Once `xenvman` is running simply point your browser at
+`http://<HOST>:<PORT>/`, where `<HOST>` is the hostname/ip where `xenvman`
+is running and `<PORT>` is the post which `xenvman` is listening on.
+
+List of active environments:
+![List of environments](docs/img/webapp-1.png)
+
+Environment info:
+![Environment info](docs/img/webapp-2.png)
+
+Templates browser:
+![Templates browser](docs/img/webapp-3.png)
 
 # Clients
 

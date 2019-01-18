@@ -27,14 +27,14 @@ package client
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"strings"
 	"time"
 
-	"io/ioutil"
-	"net/http"
-
 	"github.com/json-iterator/go"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/syhpoon/xenvman/pkg/def"
 )
@@ -51,6 +51,9 @@ type Client struct {
 	params     Params
 }
 
+// Create a new xenvman client
+// If params.ServerAddress is not set, a value from
+// XENV_API_SERVER environment variable will be used
 func New(params Params) *Client {
 	hcl := http.Client{
 		Timeout: params.RequestTimeout,
@@ -74,6 +77,7 @@ func New(params Params) *Client {
 	}
 }
 
+// Create xenvman client or panic otherwise
 func (cl *Client) MustCreateEnv(envDef *def.InputEnv) *Env {
 	env, err := cl.NewEnv(envDef)
 
@@ -84,6 +88,7 @@ func (cl *Client) MustCreateEnv(envDef *def.InputEnv) *Env {
 	return env
 }
 
+// Create a new environment
 func (cl *Client) NewEnv(envDef *def.InputEnv) (*Env, error) {
 	url := fmt.Sprintf("%s/api/v1/env", cl.params.ServerAddress)
 
@@ -105,32 +110,86 @@ func (cl *Client) NewEnv(envDef *def.InputEnv) (*Env, error) {
 		return nil, errors.Wrapf(err, "Error making HTTP request to %s", url)
 	}
 
+	outEnv := def.OutputEnv{}
+	e := &Env{}
+
+	if err := fetch(resp, &outEnv); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	e.OutputEnv = &outEnv
+	e.httpClient = cl.httpClient
+	e.serverAddress = cl.params.ServerAddress
+
+	return e, nil
+}
+
+// List currently active environments
+func (cl *Client) ListEnvs() ([]*def.OutputEnv, error) {
+	url := fmt.Sprintf("%s/api/v1/env", cl.params.ServerAddress)
+
+	resp, err := cl.httpClient.Get(url)
+
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error making HTTP request to %s", url)
+	}
+
+	var e []*def.OutputEnv
+
+	if err := fetch(resp, &e); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return e, nil
+}
+
+// Get environment info
+func (cl *Client) GetEnvInfo(id string) (*def.OutputEnv, error) {
+	url := fmt.Sprintf("%s/api/v1/env/%s", cl.params.ServerAddress, id)
+
+	resp, err := cl.httpClient.Get(url)
+
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error making HTTP request to %s", url)
+	}
+
+	var e *def.OutputEnv
+
+	if err := fetch(resp, &e); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return e, nil
+}
+
+func fetch(resp *http.Response, dst interface{}) error {
+	//noinspection GoUnhandledErrorResult
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return errors.Errorf("Unexpected HTTP response %d: %s",
+			resp.StatusCode, resp.Status)
+	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 
 	if err != nil {
-		return nil, errors.Wrapf(err, "Error reading response body")
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("Unexpected HTTP response %d: %s",
-			resp.StatusCode, string(body))
+		return errors.Wrapf(err, "Error reading response body")
 	}
 
 	r := apiResponse{}
 
 	if err := json.Unmarshal(body, &r); err != nil {
-		return nil, errors.Wrapf(err, "Error parsing response body")
+		return errors.Wrapf(err, "Error parsing response body")
 	}
 
-	e := &Env{}
-
-	if r.Env != nil {
-		e.OutputEnv = r.Env
-		e.httpClient = cl.httpClient
-		e.serverAddress = cl.params.ServerAddress
+	if r.Data == nil {
+		return errors.Errorf("Returned data is nil")
 	}
 
-	return e, nil
+	if err := mapstructure.Decode(r.Data, dst); err != nil {
+		return errors.Wrapf(err, "Error decoding response data")
+	}
+
+	return nil
 }

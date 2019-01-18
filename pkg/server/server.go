@@ -160,21 +160,21 @@ func (s *Server) setupHandlers() {
 	s.router.HandleFunc("/api/v1/env", hf(s.listEnvsHandler)).
 		Methods(http.MethodGet)
 
-	// GET /api/v1/env/{id} - Get environment info
-	s.router.HandleFunc("/api/v1/env/{id}", hf(s.getEnvHandler)).
-		Methods(http.MethodGet)
-
 	// POST /api/v1/env - Create a new environment
 	s.router.HandleFunc("/api/v1/env", hf(s.createEnvHandler)).
 		Methods(http.MethodPost)
 
-	// DELETE /api/v1/env/{id} - Delete an environment
-	s.router.HandleFunc("/api/v1/env/{id}", hf(s.deleteEnvHandler)).
-		Methods(http.MethodDelete)
+	// GET /api/v1/env/{id} - Get environment info
+	s.router.HandleFunc("/api/v1/env/{id}", hf(s.getEnvHandler)).
+		Methods(http.MethodGet)
 
 	// PATCH /api/v1/env/{id} - Patch an environment
 	s.router.HandleFunc("/api/v1/env/{id}", hf(s.patchEnvHandler)).
 		Methods(http.MethodPatch)
+
+	// DELETE /api/v1/env/{id} - Delete an environment
+	s.router.HandleFunc("/api/v1/env/{id}", hf(s.deleteEnvHandler)).
+		Methods(http.MethodDelete)
 
 	// POST /api/v1/env/{id}/keepalive - Keep alive an environment
 	s.router.HandleFunc("/api/v1/env/{id}/keepalive",
@@ -187,9 +187,7 @@ func (s *Server) setupHandlers() {
 	// Prometheus metrics
 	s.router.Handle("/metrics", promhttp.Handler())
 
-	//TODO: API doc
-	//s.router.HandleFunc("/apidoc", s.handleRoot)
-
+	// Webapp
 	s.router.PathPrefix("/webapp/{path:.*}").HandlerFunc(s.webappHandler)
 	s.router.HandleFunc("/", s.redirectRootHandler)
 
