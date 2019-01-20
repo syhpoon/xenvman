@@ -115,7 +115,7 @@ xenvman can be used to:
 * Expose container ports for external access
 * Dynamically change environment composition (add, stop, restart containers) on the fly
 
-For a detailed example take a look at [tutorial](https://medium.com/@syhpoon/xenvman-tutorial-c9967ddefaae).
+For a detailed example take a look at [tutorial](http://syhpoon.ca/posts/xenvman-tutorial/).
 
 # Installation
 
@@ -598,10 +598,45 @@ Returns true if given argument is of array type.
 Returns true if given argument is neither `null` nor `undefined`.
 
 ## Interpolation
-TODO
+
+Sometimes a static file either embedded into an image or mounted
+into a container in runtime is not enough, we need to be able to
+include some dynamic parts, parts which can take different values
+from environment to environment. For example you may need to
+specify a database address in a config for your service.
+But the hostname will always be different, you cannot just hardcode it.
+
+This is where interpolation kicks in. Interpolation is just a fancy name
+for variable substitution. Basically you just reserve certain placeholders
+in your configs and they will be filled with needed values in due time.
+
+There are two main types of interpolation in `xenvman`:
+
+1. Workspace files
+2. Mounted files, readiness checks, environ interpolation
+
+The main difference between them is the available data.
+
+For workspace files the only data you can substitute is the
+one you supply yourself, the reason for this is that workspace files
+are baked into an image and thus cannot be modified in any way
+during container lifetime.
+
+All the rest, on the other hand, do have access to some runtime info
+like containers, ports etc.
+
+All the interpolation is done using [Golang template language](https://golang.org/pkg/text/template/).
 
 ### Workspace files interpolation
-TODO
+
+Workspace files interpolation is very simple, you just call
+[InterpolateWorkspaceFile()](#interpolateworkspacefilefile--string-data--object---null) function on
+a file you want to interpolate. You must copy the file using
+[CopyDataToWorkspace()](#copydatatoworkspacepath--string---null) or 
+[AddFileToWorkspace()](#addfiletoworkspacepath--string-data--string-mode-int---null) first. 
+
+You can supply arbitrary object and its fields in your interpolation
+placeholders.
 
 ### Mounted files, readiness checks & environ interpolation
 TODO
@@ -886,3 +921,4 @@ Currently `xenvman` only has support for `Go` language client.
 
 ## Golang
 TODO
+[GoDoc](https://godoc.org/github.com/syhpoon/xenvman/pkg/client)
