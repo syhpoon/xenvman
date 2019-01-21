@@ -33,8 +33,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/syhpoon/xenvman/pkg/tpl"
-
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -47,6 +45,7 @@ import (
 	"github.com/syhpoon/xenvman/pkg/env"
 	"github.com/syhpoon/xenvman/pkg/lib"
 	"github.com/syhpoon/xenvman/pkg/logger"
+	"github.com/syhpoon/xenvman/pkg/tpl"
 )
 
 var serverLog = logger.GetLogger("xenvman.pkg.server.server")

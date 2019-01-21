@@ -25,6 +25,7 @@
 package client
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -41,6 +42,7 @@ type Env struct {
 	serverAddress string
 }
 
+// Terminate/Delete environment
 func (env *Env) Terminate() error {
 	url := fmt.Sprintf("%s/api/v1/env/%s", env.serverAddress, env.Id)
 
@@ -63,6 +65,60 @@ func (env *Env) Terminate() error {
 
 		return errors.Errorf("Unexpected HTTP response %d: %s",
 			resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// Patch environment
+func (env *Env) Patch(patch *def.PatchEnv) (*def.OutputEnv, error) {
+	b, err := json.Marshal(patch)
+
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error marshaling request body")
+	}
+
+	url := fmt.Sprintf("%s/api/v1/env/%s", env.serverAddress, env.Id)
+
+	req, err := http.NewRequest(http.MethodPatch, url, bytes.NewReader(b))
+
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error creating HTTP request to %s", url)
+	}
+
+	resp, err := env.httpClient.Do(req)
+
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error making HTTP request to %s", url)
+	}
+
+	var e *def.OutputEnv
+
+	if err := fetch(resp, &e); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return e, nil
+}
+
+// Send a keepalive message
+func (env *Env) Keepalive() error {
+	url := fmt.Sprintf("%s/api/v1/env/%s/keepalive", env.serverAddress, env.Id)
+
+	req, err := http.NewRequest(http.MethodPost, url, nil)
+
+	if err != nil {
+		return errors.Wrapf(err, "Error creating HTTP request to %s", url)
+	}
+
+	resp, err := env.httpClient.Do(req)
+
+	if err != nil {
+		return errors.Wrapf(err, "Error making HTTP request to %s", url)
+	}
+
+	if err := fetch(resp, nil); err != nil {
+		return errors.WithStack(err)
 	}
 
 	return nil

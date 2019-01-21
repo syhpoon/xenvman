@@ -1,6 +1,7 @@
 [![Build Status](https://travis-ci.org/syhpoon/xenvman.svg?branch=master)](https://travis-ci.org/syhpoon/xenvman)
 [![codecov](https://codecov.io/gh/syhpoon/xenvman/branch/master/graph/badge.svg)](https://codecov.io/gh/syhpoon/xenvman)
 [![Go Report Card](https://goreportcard.com/badge/github.com/syhpoon/xenvman)](https://goreportcard.com/report/github.com/syhpoon/xenvman)
+
 Table of Contents
 =================
 
@@ -67,6 +68,18 @@ Table of Contents
       * [Interpolation](#interpolation)
          * [Workspace files interpolation](#workspace-files-interpolation)
          * [Mounted files, readiness checks &amp; environ interpolation](#mounted-files-readiness-checks--environ-interpolation)
+            * [.Self -&gt; Container](#self---container)
+            * [.Extra -&gt; Any](#extra---any)
+            * [.ExternalAddress -&gt; string](#externaladdress---string)
+            * [.ContainersWithLabels(label : string, value : string) -&gt; [Container]](#containerswithlabelslabel--string-value--string---container)
+            * [.ContainerWithLabel(label : string, value : string) -&gt; Container](#containerwithlabellabel--string-value--string---container)
+            * [.AllContainers() -&gt; [Container]](#allcontainers---container)
+            * [Container instance methods](#container-instance-methods)
+               * [.IP -&gt; string](#ip---string)
+               * [.Hostname -&gt; string](#hostname---string)
+               * [.Name -&gt; string](#name---string)
+               * [.GetLabel(label : string) -&gt; string](#getlabellabel--string---string)
+               * [.ExposedPort(iport : int) -&gt; int](#exposedportiport--int---int)
    * [HTTP API](#http-api)
       * [GET /api/v1/env](#get-apiv1env)
          * [Response body](#response-body)
@@ -599,7 +612,7 @@ Returns true if given argument is neither `null` nor `undefined`.
 
 ## Interpolation
 
-Sometimes a static file either embedded into an image or mounted
+Sometimes a static file, either embedded into an image or mounted
 into a container in runtime is not enough, we need to be able to
 include some dynamic parts, parts which can take different values
 from environment to environment. For example you may need to
@@ -613,12 +626,12 @@ in your configs and they will be filled with needed values in due time.
 There are two main types of interpolation in `xenvman`:
 
 1. Workspace files
-2. Mounted files, readiness checks, environ interpolation
+2. Mounted files, readiness checks and environ interpolation
 
 The main difference between them is the available data.
 
 For workspace files the only data you can substitute is the
-one you supply yourself, the reason for this is that workspace files
+one you supply yourself. The reason for this is that workspace files
 are baked into an image and thus cannot be modified in any way
 during container lifetime.
 
@@ -638,8 +651,97 @@ a file you want to interpolate. You must copy the file using
 You can supply arbitrary object and its fields in your interpolation
 placeholders.
 
+For example, let's say we have a `Dockerfile` in our data dir.
+It will be included into an image every time we build it.
+And we allow clients to supply their own executable binary.
+Thus we don't know what the binary will be so we cannot hardcode
+the executable name and so we'll use interpolation for it.
+
+Let's examine template code first:
+
+```javascript
+function execute(tpl, params) {
+    var img = tpl.BuildImage("service-%s", params.service);
+    
+    img.CopyDataToWorkspace("Dockerfile");
+    img.InterpolateWorkspaceFile("Dockerfile", {"service": params.service});
+}
+```
+
+And the Dockerfile itself:
+
+```dockerfile
+FROM ubuntu
+
+COPY {{.service}} /
+CMD ["/{{.service}}", "run"]
+```
+
+Here `{{.service}}` will be substituted with whaterver was provided in
+
+```javascript
+    img.InterpolateWorkspaceFile("Dockerfile", {"service": params.service});
+```
+
+in our template.
+
 ### Mounted files, readiness checks & environ interpolation
-TODO
+
+For this type of interpolation, in addition to providing your own
+placeholder data, there's also some internal environment-specific data
+available for you.
+
+Let's take a look at what's available:
+
+#### .Self -> Container
+
+Return a current container instance.
+
+#### .Extra -> Any
+
+Returns a user-provided data, if any.
+
+#### .ExternalAddress -> string
+
+Returns an external address.
+
+#### .ContainersWithLabels(label : string, value : string) -> [Container]
+
+Find all containers with a given label name and value.
+Empty `value` matches any label.
+
+#### .ContainerWithLabel(label : string, value : string) -> Container
+
+Find a container with a given label name and value.
+Empty `value` matches any label.
+
+#### .AllContainers() -> [Container]
+
+Return a list of all containers in the environment.
+
+#### Container instance methods
+
+##### .IP -> string
+
+Returns internal container IP address.
+
+##### .Hostname -> string
+
+Returns container hostname.
+
+##### .Name -> string
+
+Returns container name.
+
+##### .GetLabel(label : string) -> string
+
+Returns label value. Empty string is returned if there's no such label
+on the container.
+
+##### .ExposedPort(iport : int) -> int
+
+Returns an external (exposed) port for the given internal one.
+It's an error if there's no such port exposed on the container.
 
 # HTTP API
 
@@ -920,5 +1022,9 @@ to embed managing environments directly into integration tests themselves.
 Currently `xenvman` only has support for `Go` language client.
 
 ## Golang
-TODO
-[GoDoc](https://godoc.org/github.com/syhpoon/xenvman/pkg/client)
+
+Go documentation for client package is available
+[here](https://godoc.org/github.com/syhpoon/xenvman/pkg/client).
+
+An example of how to use the client API is available
+in [xenvman-tutorial](https://github.com/syhpoon/xenvman-tutorial/blob/master/bro_xenv_test.go).

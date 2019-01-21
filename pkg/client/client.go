@@ -46,6 +46,7 @@ type Params struct {
 	RequestTimeout time.Duration
 }
 
+// Client structure represents a logical session with xenvman API server
 type Client struct {
 	httpClient http.Client
 	params     Params
@@ -143,6 +144,25 @@ func (cl *Client) ListEnvs() ([]*def.OutputEnv, error) {
 	return e, nil
 }
 
+// List available templates
+func (cl *Client) ListTemplates() (map[string]*def.TplInfo, error) {
+	url := fmt.Sprintf("%s/api/v1/tpl", cl.params.ServerAddress)
+
+	resp, err := cl.httpClient.Get(url)
+
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error making HTTP request to %s", url)
+	}
+
+	r := map[string]*def.TplInfo{}
+
+	if err := fetch(resp, &r); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return r, nil
+}
+
 // Get environment info
 func (cl *Client) GetEnvInfo(id string) (*def.OutputEnv, error) {
 	url := fmt.Sprintf("%s/api/v1/env/%s", cl.params.ServerAddress, id)
@@ -171,24 +191,26 @@ func fetch(resp *http.Response, dst interface{}) error {
 			resp.StatusCode, resp.Status)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	if dst != nil {
+		body, err := ioutil.ReadAll(resp.Body)
 
-	if err != nil {
-		return errors.Wrapf(err, "Error reading response body")
-	}
+		if err != nil {
+			return errors.Wrapf(err, "Error reading response body")
+		}
 
-	r := apiResponse{}
+		r := apiResponse{}
 
-	if err := json.Unmarshal(body, &r); err != nil {
-		return errors.Wrapf(err, "Error parsing response body")
-	}
+		if err := json.Unmarshal(body, &r); err != nil {
+			return errors.Wrapf(err, "Error parsing response body")
+		}
 
-	if r.Data == nil {
-		return errors.Errorf("Returned data is nil")
-	}
+		if r.Data == nil {
+			return errors.Errorf("Returned data is nil")
+		}
 
-	if err := mapstructure.Decode(r.Data, dst); err != nil {
-		return errors.Wrapf(err, "Error decoding response data")
+		if err := mapstructure.Decode(r.Data, dst); err != nil {
+			return errors.Wrapf(err, "Error decoding response data")
+		}
 	}
 
 	return nil
