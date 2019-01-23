@@ -30,7 +30,6 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/json-iterator/go"
 	"github.com/pkg/errors"
 	"github.com/syhpoon/xenvman/pkg/def"
 )
@@ -125,7 +124,7 @@ func (env *Env) Keepalive() error {
 }
 
 func (env *Env) String() string {
-	b, _ := jsoniter.MarshalIndent(env, "", "   ")
+	b, _ := json.MarshalIndent(env, "", "   ")
 
 	return string(b)
 }

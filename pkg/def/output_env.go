@@ -52,12 +52,12 @@ type OutputEnv struct {
 	Id              string                `json:"id"`
 	Name            string                `json:"name"`
 	Description     string                `json:"description"`
-	WsDir           string                `json:"ws_dir"`
-	MountDir        string                `json:"mount_dir"`
-	NetId           string                `json:"net_id"`
+	WsDir           string                `json:"ws_dir" mapstructure:"ws_dir"`
+	MountDir        string                `json:"mount_dir" mapstructure:"mount_dir"`
+	NetId           string                `json:"net_id" mapstructure:"net_id"`
 	Created         string                `json:"created"`
-	Keepalive       string                `json:"keep_alive"`
-	ExternalAddress string                `json:"external_address"`
+	Keepalive       string                `json:"keep_alive" mapstructure:"keep_alive"`
+	ExternalAddress string                `json:"external_address" mapstructure:"external_address"`
 	Templates       map[string][]*TplData `json:"templates"` // tpl name -> [TplData]
 }
 

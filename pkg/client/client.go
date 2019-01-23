@@ -198,7 +198,7 @@ func fetch(resp *http.Response, dst interface{}) error {
 			return errors.Wrapf(err, "Error reading response body")
 		}
 
-		r := apiResponse{}
+		r := def.ApiResponse{}
 
 		if err := json.Unmarshal(body, &r); err != nil {
 			return errors.Wrapf(err, "Error parsing response body")

@@ -25,24 +25,20 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
-
-	"encoding/json"
 	"io/ioutil"
 	"net/http"
-)
+	"strings"
 
-type apiResponse struct {
-	Message string      `json:"message,omitempty"`
-	Data    interface{} `json:"data,omitempty"`
-}
+	"github.com/syhpoon/xenvman/pkg/def"
+)
 
 func ApiSendMessage(w http.ResponseWriter, code int,
 	msg string, args ...interface{}) {
 
-	e := apiResponse{}
+	e := def.ApiResponse{}
 
 	if msg != "" {
 		e.Message = fmt.Sprintf(msg, args...)
@@ -52,12 +48,12 @@ func ApiSendMessage(w http.ResponseWriter, code int,
 }
 
 func ApiSendData(w http.ResponseWriter, code int, data interface{}) {
-	ApiSendReply(w, code, &apiResponse{
+	ApiSendReply(w, code, &def.ApiResponse{
 		Data: data,
 	})
 }
 
-func ApiSendReply(w http.ResponseWriter, code int, resp *apiResponse) {
+func ApiSendReply(w http.ResponseWriter, code int, resp *def.ApiResponse) {
 	body, _ := json.MarshalIndent(resp, "", "   ")
 
 	_ = SendHttpResponse(w, code, nil, body)

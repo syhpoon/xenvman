@@ -845,7 +845,7 @@ Get templates info.
 ```
 {
     // Environment id
-	id: string,
+    id: string,
 	
     // Environment name
     name: string,

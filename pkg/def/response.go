@@ -22,9 +22,9 @@
  SOFTWARE.
 */
 
-package client
+package def
 
-type apiResponse struct {
+type ApiResponse struct {
 	Message string      `json:"message,omitempty"`
 	Data    interface{} `json:"data"`
 }
