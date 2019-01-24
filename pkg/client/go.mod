@@ -7,7 +7,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/pkg/errors v0.8.0
 	github.com/stretchr/testify v1.3.0
-	github.com/syhpoon/xenvman/pkg/def v1.0.0
+	github.com/syhpoon/xenvman/pkg/def v2.0.0+incompatible
 )
 
 replace github.com/syhpoon/xenvman/pkg/def => ../def
