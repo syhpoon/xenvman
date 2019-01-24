@@ -1,4 +1,4 @@
-# v2.0.0 (TBD)
+# v2.0.0 (2019-01-23)
 
 * Added dynamic discovery agent
 * Added new `keepalive` configuration parameter to set default environment
