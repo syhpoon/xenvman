@@ -1,7 +1,7 @@
 /*
  MIT License
 
- Copyright (c) 2018 Max Kuznetsov <syhpoon@syhpoon.ca>
+ Copyright (c) 2019 Max Kuznetsov <syhpoon@syhpoon.ca>
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
@@ -154,17 +154,85 @@ func TestListTemplates(t *testing.T) {
 	require.Equal(t, itpls, otpls)
 }
 
+func TestEnvTerminate(t *testing.T) {
+	srv := testSrv("Env deleted", t)
+	defer srv.Close()
+
+	env := &Env{
+		OutputEnv: &def.OutputEnv{
+			Id: "id",
+		},
+		serverAddress: srv.URL,
+		httpClient: http.Client{
+			Timeout: 3 * time.Second,
+		},
+	}
+
+	require.Nil(t, env.Terminate())
+}
+
+func TestEnvPatch(t *testing.T) {
+	ienv := &def.OutputEnv{
+		Id:   "id",
+		Name: "name",
+	}
+
+	srv := testSrv(ienv, t)
+	defer srv.Close()
+
+	env := &Env{
+		OutputEnv: &def.OutputEnv{
+			Id: "id",
+		},
+		serverAddress: srv.URL,
+		httpClient: http.Client{
+			Timeout: 3 * time.Second,
+		},
+	}
+
+	oenv, err := env.Patch(&def.PatchEnv{})
+	require.Nil(t, err)
+
+	require.Equal(t, ienv, oenv)
+}
+
+func TestEnvKeepalive(t *testing.T) {
+	srv := testSrv("", t)
+	defer srv.Close()
+
+	env := &Env{
+		OutputEnv: &def.OutputEnv{
+			Id: "id",
+		},
+		serverAddress: srv.URL,
+		httpClient: http.Client{
+			Timeout: 3 * time.Second,
+		},
+	}
+
+	require.Nil(t, env.Keepalive())
+}
+
 func testSrv(out interface{}, t *testing.T) *httptest.Server {
 	return httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(200)
 
-			b, err := json.Marshal(def.ApiResponse{
-				Data: out,
-			})
-			require.Nil(t, err)
+			var res []byte
 
-			_, err = w.Write(b)
+			switch v := out.(type) {
+			case string:
+				res = []byte(v)
+			default:
+				b, err := json.Marshal(def.ApiResponse{
+					Data: out,
+				})
+				require.Nil(t, err)
+
+				res = b
+			}
+
+			_, err := w.Write(res)
 			require.Nil(t, err)
 		}))
 }

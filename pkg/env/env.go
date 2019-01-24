@@ -834,11 +834,22 @@ func (env *Env) ApplyTemplates(tplDefs []*def.Tpl,
 		env.Unlock()
 	}
 
+	// Collect all the containers for interpolation
+	var allContainers []*tpl.Container
+
+	env.RLock()
+	for _, cont := range env.containers {
+		allContainers = append(allContainers, cont)
+	}
+	env.RUnlock()
+
+	allContainers = append(allContainers, containers...)
+
 	// Now create containers
 	for i, cont := range containers {
 		// Interpolate container files
 		if err = env.interpolate(cont, cports[cont.Hostname()],
-			containers); err != nil {
+			allContainers); err != nil {
 
 			return errors.WithStack(err)
 		}

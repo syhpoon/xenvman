@@ -422,7 +422,7 @@ func TestAddTemplates(t *testing.T) {
 		mock.Anything).Return("cont-0", nil)
 
 	ceng.On("RunContainer", mock.Anything,
-		fmt.Sprintf("%s.1.simple.xenv", contName), imgName,
+		"appended.1.simple.xenv", imgName,
 		mock.Anything).Return("cont-1", nil)
 
 	ceng.On("RemoveContainer", mock.Anything, mock.Anything).Return(nil)
@@ -477,19 +477,32 @@ func TestAddTemplates(t *testing.T) {
 			Tpl: tplName,
 			Parameters: map[string]interface{}{
 				"image":     imgName,
-				"container": contName,
+				"container": "appended",
+				"mount":     true,
 			},
 		},
 	}, false, false)
 	require.Nil(t, err)
 
 	exported2 := env.Export()
-	cid1 := exported2.Templates["simple"][1].Containers[contName].Id
+	cid1 := exported2.Templates["simple"][1].Containers["appended"].Id
 
 	require.Nil(t, err)
 	require.Len(t, env.containers, 2)
 	require.Contains(t, env.containers, cid0)
 	require.Contains(t, env.containers, cid1)
+
+	// Check mounted
+	mGlob := filepath.Join(tmpDir, "mount", envName+"*", "mounts",
+		"appended", "*", "mount")
+
+	mountF, err := filepath.Glob(mGlob)
+	require.Nil(t, err)
+	require.Len(t, mountF, 1)
+
+	bytes, err := ioutil.ReadFile(mountF[0])
+	require.Nil(t, err)
+	require.Equal(t, "cont.0.simple.xenv\n", string(bytes))
 
 	// Mock assertion
 	ceng.AssertNumberOfCalls(t, "FetchImage", 2)
@@ -499,6 +512,5 @@ func TestAddTemplates(t *testing.T) {
 		mock.Anything)
 
 	ceng.AssertCalled(t, "RunContainer", mock.Anything,
-		fmt.Sprintf("%s.1.simple.xenv", contName), imgMatcher,
-		mock.Anything)
+		"appended.1.simple.xenv", imgMatcher, mock.Anything)
 }
