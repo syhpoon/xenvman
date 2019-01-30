@@ -152,7 +152,7 @@ clone the sources anywhere, no need to do it into `$GOPATH`.
 
 The build process is super simple:
 ```bash
-$ cd ~ && git clone --branch v1.0.0 https://github.com/syhpoon/xenvman.git && cd xenvman
+$ cd ~ && git clone --branch v2.0.0 https://github.com/syhpoon/xenvman.git && cd xenvman
 $ make test && make build
 ```
 

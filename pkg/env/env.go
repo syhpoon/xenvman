@@ -548,7 +548,13 @@ func (env *Env) keepAliveWatchdog(dur def.Duration, ctx context.Context) {
 
 			keepAliveTimer.Reset(d)
 		case <-keepAliveTimer.C:
-			envLog.Infof("Keep alive timeout triggered for %s, terminating", env.id)
+			env.RLock()
+
+			if !env.terminating {
+				envLog.Infof("Keep alive timeout triggered for %s, terminating", env.id)
+			}
+
+			env.RUnlock()
 
 			_ = env.Terminate()
 

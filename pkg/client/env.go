@@ -97,6 +97,8 @@ func (env *Env) Patch(patch *def.PatchEnv) (*def.OutputEnv, error) {
 		return nil, errors.WithStack(err)
 	}
 
+	env.OutputEnv = e
+
 	return e, nil
 }
 

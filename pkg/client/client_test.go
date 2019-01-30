@@ -194,6 +194,7 @@ func TestEnvPatch(t *testing.T) {
 	require.Nil(t, err)
 
 	require.Equal(t, ienv, oenv)
+	require.Equal(t, oenv, env.OutputEnv)
 }
 
 func TestEnvKeepalive(t *testing.T) {
