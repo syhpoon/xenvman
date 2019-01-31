@@ -366,11 +366,25 @@ func (s *Server) listEnvsHandler(w http.ResponseWriter, req *http.Request) {
 	//noinspection ALL
 	envs := []*def.OutputEnv{}
 
+	var gc []string
+
 	s.RLock()
 	for _, e := range s.envs {
-		envs = append(envs, e.Export())
+		if e.IsAlive() {
+			envs = append(envs, e.Export())
+		} else {
+			gc = append(gc, e.Id())
+		}
 	}
 	s.RUnlock()
+
+	if len(gc) > 0 {
+		s.Lock()
+		for _, id := range gc {
+			delete(s.envs, id)
+		}
+		s.Unlock()
+	}
 
 	ApiSendData(w, http.StatusOK, envs)
 }

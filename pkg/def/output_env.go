@@ -74,7 +74,7 @@ func (e *OutputEnv) GetContainer(tplName string, tplIdx int,
 			tplName, tplIdx)
 	}
 
-	cont, ok := tpls[0].Containers[contName]
+	cont, ok := tpls[tplIdx].Containers[contName]
 
 	if !ok {
 		return nil, errors.Errorf("Container not found: %s", contName)
