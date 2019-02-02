@@ -111,6 +111,7 @@ Table of Contents
    * [Web UI](#web-ui)
    * [Clients](#clients)
       * [Golang](#golang)
+      * [Python](#python)
 
 # Overview
 
@@ -1019,7 +1020,7 @@ talking HTTP can be used as a client. But it's arguably easier to have
 native and idiomatic libraries for a language of choice, especially
 to embed managing environments directly into integration tests themselves.
 
-Currently `xenvman` only has support for `Go` language client.
+Currently `xenvman` supports the following language clients:
 
 ## Golang
 
@@ -1028,3 +1029,7 @@ Go documentation for client package is available
 
 An example of how to use the client API is available
 in [xenvman-tutorial](https://github.com/syhpoon/xenvman-tutorial/blob/master/bro_xenv_test.go).
+
+## Python
+
+Python client is available [here](https://github.com/syhpoon/xenvman-python).
