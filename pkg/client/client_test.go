@@ -98,7 +98,11 @@ func TestListEnvs(t *testing.T) {
 	oenvs, err := cl.ListEnvs()
 	require.Nil(t, err)
 
-	require.Equal(t, ienvs, oenvs)
+	require.Equal(t, len(ienvs), len(oenvs))
+
+	for i := range ienvs {
+		require.Equal(t, ienvs[i], oenvs[i].OutputEnv)
+	}
 }
 
 func TestGetEnvInfo(t *testing.T) {
@@ -117,7 +121,7 @@ func TestGetEnvInfo(t *testing.T) {
 	oenv, err := cl.GetEnvInfo("id")
 	require.Nil(t, err)
 
-	require.Equal(t, ienv, oenv)
+	require.Equal(t, ienv, oenv.OutputEnv)
 }
 
 func TestListTemplates(t *testing.T) {
@@ -190,11 +194,10 @@ func TestEnvPatch(t *testing.T) {
 		},
 	}
 
-	oenv, err := env.Patch(&def.PatchEnv{})
+	_, err := env.Patch(&def.PatchEnv{})
 	require.Nil(t, err)
 
-	require.Equal(t, ienv, oenv)
-	require.Equal(t, oenv, env.OutputEnv)
+	require.Equal(t, ienv, env.OutputEnv)
 }
 
 func TestEnvKeepalive(t *testing.T) {

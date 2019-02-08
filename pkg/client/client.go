@@ -126,7 +126,7 @@ func (cl *Client) NewEnv(envDef *def.InputEnv) (*Env, error) {
 }
 
 // List currently active environments
-func (cl *Client) ListEnvs() ([]*def.OutputEnv, error) {
+func (cl *Client) ListEnvs() ([]*Env, error) {
 	url := fmt.Sprintf("%s/api/v1/env", cl.params.ServerAddress)
 
 	resp, err := cl.httpClient.Get(url)
@@ -141,7 +141,17 @@ func (cl *Client) ListEnvs() ([]*def.OutputEnv, error) {
 		return nil, errors.WithStack(err)
 	}
 
-	return e, nil
+	envs := make([]*Env, len(e))
+
+	for i, env := range e {
+		envs[i] = &Env{
+			OutputEnv:     env,
+			httpClient:    cl.httpClient,
+			serverAddress: cl.params.ServerAddress,
+		}
+	}
+
+	return envs, nil
 }
 
 // List available templates
@@ -164,7 +174,7 @@ func (cl *Client) ListTemplates() (map[string]*def.TplInfo, error) {
 }
 
 // Get environment info
-func (cl *Client) GetEnvInfo(id string) (*def.OutputEnv, error) {
+func (cl *Client) GetEnvInfo(id string) (*Env, error) {
 	url := fmt.Sprintf("%s/api/v1/env/%s", cl.params.ServerAddress, id)
 
 	resp, err := cl.httpClient.Get(url)
@@ -179,7 +189,11 @@ func (cl *Client) GetEnvInfo(id string) (*def.OutputEnv, error) {
 		return nil, errors.WithStack(err)
 	}
 
-	return e, nil
+	return &Env{
+		OutputEnv:     e,
+		httpClient:    cl.httpClient,
+		serverAddress: cl.params.ServerAddress,
+	}, nil
 }
 
 func fetch(resp *http.Response, dst interface{}) error {

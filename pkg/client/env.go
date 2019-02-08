@@ -70,7 +70,7 @@ func (env *Env) Terminate() error {
 }
 
 // Patch environment
-func (env *Env) Patch(patch *def.PatchEnv) (*def.OutputEnv, error) {
+func (env *Env) Patch(patch *def.PatchEnv) (*Env, error) {
 	b, err := json.Marshal(patch)
 
 	if err != nil {
@@ -99,7 +99,7 @@ func (env *Env) Patch(patch *def.PatchEnv) (*def.OutputEnv, error) {
 
 	env.OutputEnv = e
 
-	return e, nil
+	return env, nil
 }
 
 // Send a keepalive message
