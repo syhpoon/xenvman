@@ -83,6 +83,7 @@ var runCmd = &cobra.Command{
 		params.TLSCertFile = config.GetString("tls.cert")
 		params.TLSKeyFile = config.GetString("tls.key")
 		params.DefaultKeepalive = config.GetDuration("keepalive")
+		params.RecursionLimit = config.GetInt("tpl.recursion_limit")
 		params.CengCtx = cengCtx
 
 		runLog.Infof("Base directory: %s", params.BaseTplDir)

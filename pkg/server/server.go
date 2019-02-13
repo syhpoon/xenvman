@@ -63,6 +63,7 @@ type Params struct {
 	TLSCertFile      string
 	TLSKeyFile       string
 	AuthBackend      AuthBackend
+	RecursionLimit   int
 	Ctx              context.Context
 	CengCtx          context.Context
 	DefaultKeepalive time.Duration
@@ -237,6 +238,7 @@ func (s *Server) createEnvHandler(w http.ResponseWriter, req *http.Request) {
 		BaseMountDir:     s.params.BaseMountDir,
 		ExportAddress:    s.params.ExportAddress,
 		DefaultKeepAlive: def.Duration(s.params.DefaultKeepalive),
+		RecursionLimit:   s.params.RecursionLimit,
 		Ctx:              s.params.CengCtx,
 	})
 

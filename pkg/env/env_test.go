@@ -57,9 +57,10 @@ func TestEnvNonesistentTemplate(t *testing.T) {
 				},
 			},
 		},
-		ContEng:    ceng,
-		BaseTplDir: "/tmp/nonexistent",
-		Ctx:        ctx,
+		RecursionLimit: 10,
+		ContEng:        ceng,
+		BaseTplDir:     "/tmp/nonexistent",
+		Ctx:            ctx,
 	})
 
 	require.Contains(t, err.Error(), "no such file or directory")
@@ -77,9 +78,10 @@ func TestEnvInvalidTemplateName(t *testing.T) {
 			Name:      "test",
 			Templates: []*def.Tpl{{Tpl: " /etc/passwd"}},
 		},
-		ContEng:    ceng,
-		BaseTplDir: "/tmp/nonexistent",
-		Ctx:        ctx,
+		RecursionLimit: 10,
+		ContEng:        ceng,
+		BaseTplDir:     "/tmp/nonexistent",
+		Ctx:            ctx,
 	}
 
 	_, err := NewEnv(params)
@@ -179,13 +181,14 @@ func TestEnvOk(t *testing.T) {
 				DisableDiscovery: true,
 			},
 		},
-		ContEng:       ceng,
-		BaseTplDir:    filepath.Join(cwd, "./testdata"),
-		BaseWsDir:     filepath.Join(tmpDir, "ws"),
-		BaseMountDir:  filepath.Join(tmpDir, "mount"),
-		PortRange:     lib.NewPortRange(20000, 30000),
-		ExportAddress: "localhost",
-		Ctx:           ctx,
+		RecursionLimit: 10,
+		ContEng:        ceng,
+		BaseTplDir:     filepath.Join(cwd, "./testdata"),
+		BaseWsDir:      filepath.Join(tmpDir, "ws"),
+		BaseMountDir:   filepath.Join(tmpDir, "mount"),
+		PortRange:      lib.NewPortRange(20000, 30000),
+		ExportAddress:  "localhost",
+		Ctx:            ctx,
 	})
 
 	defer os.RemoveAll(tmpDir)
@@ -353,13 +356,14 @@ func TestStartStopContainers(t *testing.T) {
 				DisableDiscovery: true,
 			},
 		},
-		ContEng:       ceng,
-		BaseTplDir:    filepath.Join(cwd, "./testdata"),
-		BaseWsDir:     filepath.Join(tmpDir, "ws"),
-		BaseMountDir:  filepath.Join(tmpDir, "mount"),
-		PortRange:     lib.NewPortRange(20000, 30000),
-		ExportAddress: "localhost",
-		Ctx:           ctx,
+		RecursionLimit: 10,
+		ContEng:        ceng,
+		BaseTplDir:     filepath.Join(cwd, "./testdata"),
+		BaseWsDir:      filepath.Join(tmpDir, "ws"),
+		BaseMountDir:   filepath.Join(tmpDir, "mount"),
+		PortRange:      lib.NewPortRange(20000, 30000),
+		ExportAddress:  "localhost",
+		Ctx:            ctx,
 	})
 
 	defer os.RemoveAll(tmpDir)
@@ -452,19 +456,22 @@ func TestAddTemplates(t *testing.T) {
 				DisableDiscovery: true,
 			},
 		},
-		ContEng:       ceng,
-		BaseTplDir:    filepath.Join(cwd, "./testdata"),
-		BaseWsDir:     filepath.Join(tmpDir, "ws"),
-		BaseMountDir:  filepath.Join(tmpDir, "mount"),
-		PortRange:     lib.NewPortRange(20000, 30000),
-		ExportAddress: "localhost",
-		Ctx:           ctx,
+		RecursionLimit: 10,
+		ContEng:        ceng,
+		BaseTplDir:     filepath.Join(cwd, "./testdata"),
+		BaseWsDir:      filepath.Join(tmpDir, "ws"),
+		BaseMountDir:   filepath.Join(tmpDir, "mount"),
+		PortRange:      lib.NewPortRange(20000, 30000),
+		ExportAddress:  "localhost",
+		Ctx:            ctx,
 	})
 
 	defer os.RemoveAll(tmpDir)
-	defer env.Terminate()
 
 	require.Nil(t, err)
+
+	defer env.Terminate()
+
 	exported := env.Export()
 	cid0 := exported.Templates["simple"][0].Containers[contName].Id
 
@@ -513,4 +520,155 @@ func TestAddTemplates(t *testing.T) {
 
 	ceng.AssertCalled(t, "RunContainer", mock.Anything,
 		"appended.1.simple.xenv", imgMatcher, mock.Anything)
+}
+
+func TestImport(t *testing.T) {
+	ctx := context.Background()
+	ceng := new(conteng.MockedEngine)
+
+	imgName := "import-image"
+
+	imgMatcher := mock.MatchedBy(func(img string) bool {
+		return strings.Contains(img, imgName)
+	})
+
+	ceng.On("CreateNetwork", mock.Anything, mock.Anything).
+		Return("net-id", "10.0.0.0/24", nil)
+	ceng.On("RemoveNetwork", mock.Anything, mock.AnythingOfType("string")).
+		Return(nil)
+
+	ceng.On("GetImagePorts", mock.Anything,
+		imgMatcher).Return([]uint16(nil), nil)
+	ceng.On("FetchImage", mock.Anything, imgName).Return(nil)
+
+	ceng.On("RunContainer", mock.Anything,
+		"import-cont.0.import.xenv", imgName,
+		mock.Anything).Return("cont-0", nil)
+
+	ceng.On("RunContainer", mock.Anything,
+		"import2-cont.0.import2.xenv", imgName,
+		mock.Anything).Return("cont-1", nil)
+
+	ceng.On("RunContainer", mock.Anything,
+		"import3-cont.0.import3.xenv", imgName,
+		mock.Anything).Return("cont-2", nil)
+
+	ceng.On("RunContainer", mock.Anything,
+		"import4-cont.0.import4.xenv", imgName,
+		mock.Anything).Return("cont-3", nil)
+
+	ceng.On("RemoveContainer", mock.Anything, mock.Anything).Return(nil)
+	ceng.On("RemoveImage", mock.Anything, mock.Anything).Return(nil)
+
+	cwd, err := os.Getwd()
+	require.Nil(t, err)
+
+	tmpDir := filepath.Join(os.TempDir(), "xenvman-test-"+lib.NewId())
+
+	envName := "test"
+	tplName := "import"
+
+	env, err := NewEnv(Params{
+		EnvDef: &def.InputEnv{
+			Name:      envName,
+			Templates: []*def.Tpl{{Tpl: tplName}},
+			Options: &def.EnvOptions{
+				DisableDiscovery: true,
+			},
+		},
+		ContEng:        ceng,
+		BaseTplDir:     filepath.Join(cwd, "./testdata"),
+		BaseWsDir:      filepath.Join(tmpDir, "ws"),
+		BaseMountDir:   filepath.Join(tmpDir, "mount"),
+		PortRange:      lib.NewPortRange(20000, 30000),
+		ExportAddress:  "localhost",
+		RecursionLimit: 10,
+		Ctx:            ctx,
+	})
+
+	defer os.RemoveAll(tmpDir)
+
+	require.Nil(t, err)
+
+	defer env.Terminate()
+
+	exported := env.Export()
+
+	c1, err := exported.GetContainerByPath(
+		[]string{"import|0"}, "import-cont")
+
+	require.Nil(t, err)
+	require.Equal(t, c1.Hostname, "import-cont.0.import.xenv")
+
+	c2, err := exported.GetContainerByPath(
+		[]string{"import|0", "import2|0"}, "import2-cont")
+
+	require.Nil(t, err)
+	require.Equal(t, c2.Hostname, "import2-cont.0.import2.xenv")
+
+	c3, err := exported.GetContainerByPath(
+		[]string{"import|0", "import3|0"}, "import3-cont")
+
+	require.Nil(t, err)
+	require.Equal(t, c3.Hostname, "import3-cont.0.import3.xenv")
+
+	c4, err := exported.GetContainerByPath(
+		[]string{"import|0", "import3|0", "import4|0"}, "import4-cont")
+
+	require.Nil(t, err)
+	require.Equal(t, c4.Hostname, "import4-cont.0.import4.xenv")
+
+	// Mock assertion
+	ceng.AssertNumberOfCalls(t, "FetchImage", 1)
+
+	ceng.AssertCalled(t, "RunContainer", mock.Anything,
+		"import-cont.0.import.xenv", imgName, mock.Anything)
+
+	ceng.AssertCalled(t, "RunContainer", mock.Anything,
+		"import2-cont.0.import2.xenv", imgName, mock.Anything)
+
+	ceng.AssertCalled(t, "RunContainer", mock.Anything,
+		"import3-cont.0.import3.xenv", imgName, mock.Anything)
+
+	ceng.AssertCalled(t, "RunContainer", mock.Anything,
+		"import4-cont.0.import4.xenv", imgName, mock.Anything)
+}
+
+func TestImportLoop(t *testing.T) {
+	ctx := context.Background()
+	ceng := new(conteng.MockedEngine)
+
+	ceng.On("RemoveNetwork", mock.Anything, mock.AnythingOfType("string")).
+		Return(nil)
+
+	cwd, err := os.Getwd()
+	require.Nil(t, err)
+
+	tmpDir := filepath.Join(os.TempDir(), "xenvman-test-"+lib.NewId())
+
+	envName := "test"
+	tplName := "import-loop"
+
+	_, err = NewEnv(Params{
+		EnvDef: &def.InputEnv{
+			Name:      envName,
+			Templates: []*def.Tpl{{Tpl: tplName}},
+			Options: &def.EnvOptions{
+				DisableDiscovery: true,
+			},
+		},
+		ContEng:        ceng,
+		BaseTplDir:     filepath.Join(cwd, "./testdata"),
+		BaseWsDir:      filepath.Join(tmpDir, "ws"),
+		BaseMountDir:   filepath.Join(tmpDir, "mount"),
+		PortRange:      lib.NewPortRange(20000, 30000),
+		ExportAddress:  "localhost",
+		RecursionLimit: 10,
+		Ctx:            ctx,
+	})
+
+	defer os.RemoveAll(tmpDir)
+
+	require.NotNil(t, err)
+	require.Contains(t, err.Error(), "Recursion limit reached")
 }

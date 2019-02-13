@@ -90,6 +90,7 @@ type Params struct {
 	BaseMountDir     string
 	ExportAddress    string
 	DefaultKeepAlive def.Duration
+	RecursionLimit   int
 	Ctx              context.Context
 }
 
@@ -377,8 +378,9 @@ func (env *Env) buildAndFetch(toBuild map[string]*tpl.BuildImage,
 }
 
 type executeResult struct {
-	t   *tpl.Tpl
-	idx int
+	t     *tpl.Tpl
+	imprt []*def.Tpl
+	idx   int
 }
 
 type executeResults []*executeResult
@@ -389,7 +391,11 @@ func (er executeResults) Less(i, j int) bool { return er[i].idx < er[j].idx }
 
 // Execute templates in parallel
 func (env *Env) executeTemplates(tpls []*def.Tpl,
-	needDiscovery bool) ([]*tpl.Tpl, error) {
+	needDiscovery bool, rec int) ([]*tpl.Tpl, error) {
+
+	if rec >= env.params.RecursionLimit {
+		return nil, errors.Errorf("Recursion limit reached")
+	}
 
 	ctx, cancel := context.WithCancel(env.params.Ctx)
 	defer cancel()
@@ -451,6 +457,16 @@ func (env *Env) executeTemplates(tpls []*def.Tpl,
 
 	for i, r := range results {
 		templates[i] = r.t
+
+		if len(r.imprt) > 0 {
+			itpls, err := env.executeTemplates(r.imprt, false, rec+1)
+
+			if err != nil {
+				return nil, errors.Wrap(err, "Error executing imported templates")
+			} else {
+				templates[i].SetImported(itpls)
+			}
+		}
 	}
 
 	return templates, nil
@@ -567,31 +583,6 @@ func (env *Env) Export() *def.OutputEnv {
 	env.RLock()
 	defer env.RUnlock()
 
-	templates := map[string][]*def.TplData{}
-
-	for tplName, tpls := range env.ports {
-		for idx, t := range tpls {
-			tpld := &def.TplData{
-				Containers: map[string]*def.ContainerData{},
-			}
-
-			for cont, ps := range t {
-				if _, ok := tpld.Containers[cont]; !ok {
-					cid := env.contIds[tplName][idx][cont]
-
-					tpld.Containers[cont] = def.NewContainerData(
-						cid, env.containers[cid].Hostname())
-				}
-
-				for ip, ep := range ps {
-					tpld.Containers[cont].Ports[fmt.Sprintf("%d", ip)] = int(ep)
-				}
-			}
-
-			templates[tplName] = append(templates[tplName], tpld)
-		}
-	}
-
 	return &def.OutputEnv{
 		Id:              env.id,
 		Name:            env.params.EnvDef.Name,
@@ -602,8 +593,41 @@ func (env *Env) Export() *def.OutputEnv {
 		Created:         env.created.Format(time.RFC3339),
 		Keepalive:       env.keepalive.String(),
 		ExternalAddress: env.params.ExportAddress,
-		Templates:       templates,
+		Templates:       env.exportTemplates(env.tpls),
 	}
+}
+
+func (env *Env) exportTemplates(tpls []*tpl.Tpl) map[string][]*def.TplData {
+	templates := map[string][]*def.TplData{}
+
+	for _, tplobj := range tpls {
+		name := tplobj.GetName()
+		idx := tplobj.GetIdx()
+
+		tpld := &def.TplData{
+			Containers: map[string]*def.ContainerData{},
+			Templates:  env.exportTemplates(tplobj.GetImported()),
+		}
+
+		if len(env.ports[name]) > idx {
+			for cont, ps := range env.ports[name][idx] {
+				if _, ok := tpld.Containers[cont]; !ok {
+					cid := env.contIds[name][idx][cont]
+
+					tpld.Containers[cont] = def.NewContainerData(
+						cid, env.containers[cid].Hostname())
+				}
+
+				for ip, ep := range ps {
+					tpld.Containers[cont].Ports[fmt.Sprintf("%d", ip)] = int(ep)
+				}
+			}
+		}
+
+		templates[name] = append(templates[name], tpld)
+	}
+
+	return templates
 }
 
 func (env *Env) execTpl(tplObj *def.Tpl, idx int,
@@ -628,12 +652,12 @@ func (env *Env) execTpl(tplObj *def.Tpl, idx int,
 		params.TplDir = env.params.BaseTplDir
 	}
 
-	t, err := tpl.Execute(env.id, tplObj.Tpl, idx, params)
+	t, imprt, err := tpl.Execute(env.id, tplObj.Tpl, idx, params)
 
 	if err != nil {
 		errch <- errors.WithStack(err)
 	} else {
-		rch <- &executeResult{t: t, idx: idx}
+		rch <- &executeResult{t: t, imprt: imprt, idx: idx}
 	}
 }
 
@@ -702,33 +726,13 @@ func (env *Env) ApplyTemplates(tplDefs []*def.Tpl,
 
 	var containers []*tpl.Container
 
-	tpls, err := env.executeTemplates(tplDefs, needDiscovery)
+	tpls, err := env.executeTemplates(tplDefs, needDiscovery, 0)
 
 	if err != nil {
 		return errors.WithStack(err)
 	}
 
-	for _, t := range tpls {
-		// Collect build images
-		for _, bimg := range t.GetBuildImages() {
-			imagesToBuild[bimg.Name()] = bimg
-
-			// Collect containers
-			for _, c := range bimg.Containers() {
-				containers = append(containers, c)
-			}
-		}
-
-		// Collect fetch images
-		for _, fimg := range t.GetFetchImages() {
-			imagesToFetch[fimg.Name()] = fimg
-
-			// Collect containers
-			for _, c := range fimg.Containers() {
-				containers = append(containers, c)
-			}
-		}
-	}
+	env.extractContainers(tpls, &containers, imagesToBuild, imagesToFetch)
 
 	imgPorts, err := env.buildAndFetch(imagesToBuild, imagesToFetch,
 		env.params.ContEng, env.params.Ctx)
@@ -956,4 +960,38 @@ func (env *Env) ApplyTemplates(tplDefs []*def.Tpl,
 	}
 
 	return nil
+}
+
+func (env *Env) extractContainers(
+	tpls []*tpl.Tpl, containers *[]*tpl.Container,
+	imagesToBuild map[string]*tpl.BuildImage,
+	imagesToFetch map[string]*tpl.FetchImage) {
+
+	for _, t := range tpls {
+		// Collect build images
+		for _, bimg := range t.GetBuildImages() {
+			imagesToBuild[bimg.Name()] = bimg
+
+			// Collect containers
+			for _, c := range bimg.Containers() {
+				*containers = append(*containers, c)
+			}
+		}
+
+		// Collect fetch images
+		for _, fimg := range t.GetFetchImages() {
+			imagesToFetch[fimg.Name()] = fimg
+
+			// Collect containers
+			for _, c := range fimg.Containers() {
+				*containers = append(*containers, c)
+			}
+		}
+
+		// Process imported templates as well
+		if len(t.GetImported()) > 0 {
+			env.extractContainers(t.GetImported(),
+				containers, imagesToBuild, imagesToFetch)
+		}
+	}
 }

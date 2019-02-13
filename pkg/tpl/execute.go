@@ -43,6 +43,17 @@ var errCancelled = errors.New("Cancelled execution")
 
 const executeFunctionName = "execute"
 
+type importTpls struct {
+	list []*def.Tpl
+}
+
+func (it *importTpls) Add(tpl string, params map[string]interface{}) {
+	it.list = append(it.list, &def.Tpl{
+		Tpl:        tpl,
+		Parameters: params,
+	})
+}
+
 type ExecuteParams struct {
 	TplDir    string
 	WsDir     string
@@ -52,7 +63,8 @@ type ExecuteParams struct {
 	Ctx       context.Context
 }
 
-func Execute(envId, tplName string, tplIndex int, params ExecuteParams) (tpl *Tpl, err error) {
+func Execute(envId, tplName string, tplIndex int,
+	params ExecuteParams) (tpl *Tpl, _ []*def.Tpl, err error) {
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -74,13 +86,16 @@ func Execute(envId, tplName string, tplIndex int, params ExecuteParams) (tpl *Tp
 
 	vm := otto.New()
 
+	imprt := &importTpls{}
+
 	// Setup library
 	setupLib(vm)
+	_ = vm.Set("import_template", imprt.Add)
 
 	jsFile, dataDir, err := getTplPaths(tplName, params.TplDir)
 
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, nil, errors.WithStack(err)
 	}
 
 	tplLog.Debugf("Executing tpl from %s (%s)", tplName, jsFile)
@@ -88,13 +103,13 @@ func Execute(envId, tplName string, tplIndex int, params ExecuteParams) (tpl *Tp
 	bytes, err := params.Fs.ReadFile(jsFile)
 
 	if err != nil {
-		return nil, errors.Wrapf(err, "Error reading tpl %s", tplName)
+		return nil, nil, errors.Wrapf(err, "Error reading tpl %s", tplName)
 	}
 
 	_, err = vm.Run(bytes)
 
 	if err != nil {
-		return nil, errors.Wrapf(err, "Error executing tpl %s", tplName)
+		return nil, nil, errors.Wrapf(err, "Error executing tpl %s", tplName)
 	}
 
 	// /<ws-dir>/<tpl-name>/<tpl-idx>
@@ -119,9 +134,9 @@ func Execute(envId, tplName string, tplIndex int, params ExecuteParams) (tpl *Tp
 	if err != nil {
 		executeLog.Errorf("%s", err.(*otto.Error).String())
 
-		return nil, errors.Wrapf(err, "Error calling %s function for %s",
+		return nil, nil, errors.Wrapf(err, "Error calling %s function for %s",
 			executeFunctionName, tpl.name)
 	}
 
-	return tpl, nil
+	return tpl, imprt.list, nil
 }

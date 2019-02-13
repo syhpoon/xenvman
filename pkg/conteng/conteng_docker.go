@@ -110,7 +110,7 @@ func (de *DockerEngine) CreateNetwork(ctx context.Context,
 	r, err := de.cl.NetworkCreate(ctx, name, netParams)
 
 	if err != nil {
-		return "", "", errors.Wrapf(err, "Error creating docker network")
+		return "", "", errors.Wrapf(err, "Error creating docker network: %s", sub)
 	}
 
 	dockerLog.Debugf("Network created: %s - %s :: %s", name, r.ID, sub)
@@ -367,6 +367,8 @@ func (de *DockerEngine) getSubNet() (string, error) {
 	var nets []*net.IPNet
 
 	for _, addr := range addrs {
+		dockerLog.Debugf("Inspecting interface %s", addr.String())
+
 		_, n, err := net.ParseCIDR(addr.String())
 
 		if err != nil {

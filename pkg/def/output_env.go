@@ -25,6 +25,10 @@
 package def
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/pkg/errors"
 )
 
@@ -46,6 +50,8 @@ func NewContainerData(id, hostname string) *ContainerData {
 type TplData struct {
 	// Container name -> <internal port> -> "<host>:<external-port>"
 	Containers map[string]*ContainerData `json:"containers"`
+	// Imported templates -> tpl name -> [TplData]
+	Templates map[string][]*TplData `json:"templates"`
 }
 
 type OutputEnv struct {
@@ -63,18 +69,53 @@ type OutputEnv struct {
 
 func (e *OutputEnv) GetContainer(tplName string, tplIdx int,
 	contName string) (*ContainerData, error) {
-	tpls, ok := e.Templates[tplName]
 
-	if !ok {
-		return nil, errors.Errorf("Template not found: %s", tplName)
+	return e.GetContainerByPath([]string{
+		fmt.Sprintf("%s|%d", tplName, tplIdx),
+	}, contName)
+}
+
+// Path element must be defined in the format: <template>|<index>
+func (e *OutputEnv) GetContainerByPath(path []string,
+	contName string) (*ContainerData, error) {
+
+	var data *TplData
+
+	tmap := e.Templates
+
+	for _, el := range path {
+		split := strings.Split(el, "|")
+
+		if len(split) != 2 {
+			return nil, errors.Errorf(
+				"Invalid template path format: %s, expected <template>|<index>",
+				el)
+		}
+
+		tplName := split[0]
+		tplIdx, err := strconv.ParseInt(split[1], 10, 32)
+
+		if err != nil {
+			return nil, errors.Wrapf(err, "Invalid template index in %s",
+				split[1])
+		}
+
+		tpls, ok := tmap[tplName]
+
+		if !ok {
+			return nil, errors.Errorf("Template not found: %s", el)
+		}
+
+		if int(tplIdx) >= len(tpls) {
+			return nil, errors.Errorf("Template %s index %d not found",
+				tplName, tplIdx)
+		}
+
+		data = tpls[tplIdx]
+		tmap = data.Templates
 	}
 
-	if tplIdx >= len(tpls) {
-		return nil, errors.Errorf("Template %s index %d not found",
-			tplName, tplIdx)
-	}
-
-	cont, ok := tpls[tplIdx].Containers[contName]
+	cont, ok := data.Containers[contName]
 
 	if !ok {
 		return nil, errors.Errorf("Container not found: %s", contName)

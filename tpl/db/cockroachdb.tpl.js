@@ -18,14 +18,15 @@ function execute(tpl, params) {
   cont.SetLabel("cockroachdb", "true");
   cont.MountData("init.sh", "/init.sh", {});
   cont.SetEntrypoint("/init.sh");
-  cont.SetPorts(26257);
+  cont.SetPorts(8080, 26257);
 
   if(type.IsDefined(params.init)) {
     cont.MountString(params.init.join("\n"), "/init.sql", 0644, {});
   }
 
-  cont.AddReadinessCheck("net", {
-    "protocol": "tcp",
-    "address": '{{.ExternalAddress}}:{{.Self.ExposedPort 26257}}',
+  cont.AddReadinessCheck("http", {
+    "url": 'http://{{.ExternalAddress}}:{{.SelfExposedPort 8080}}/health',
+    "codes": [200],
+    "retry_limit": 10,
   });
 }

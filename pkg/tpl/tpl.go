@@ -60,6 +60,8 @@ type Tpl struct {
 	mountDir string
 	fs       *Fs
 
+	imported []*Tpl
+
 	ctx context.Context
 	sync.RWMutex
 }
@@ -153,4 +155,12 @@ func (tpl *Tpl) GetBuildImages() []*BuildImage {
 
 func (tpl *Tpl) GetFetchImages() []*FetchImage {
 	return tpl.fetchImages
+}
+
+func (tpl *Tpl) SetImported(imported []*Tpl) {
+	tpl.imported = imported
+}
+
+func (tpl *Tpl) GetImported() []*Tpl {
+	return tpl.imported
 }

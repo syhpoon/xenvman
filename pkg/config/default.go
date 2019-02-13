@@ -35,6 +35,7 @@ keepalive = "2m"
 base_dir = "."
 ws_dir = "/tmp/xenvman/ws"
 mount_dir = "/tmp/xenvman/mount"
+recursion_limit = 1000
 
 [log]
 config = "<root>=trace"

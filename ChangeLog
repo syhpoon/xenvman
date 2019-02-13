@@ -1,3 +1,8 @@
+# v2.1.0 (2019-02-12)
+
+* Added template import support
+* Added new config parameter: `tpl.recursion_limit`
+
 # v2.0.0 (2019-01-23)
 
 * Added dynamic discovery agent
