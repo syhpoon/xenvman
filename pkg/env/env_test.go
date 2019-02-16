@@ -570,8 +570,15 @@ func TestImport(t *testing.T) {
 
 	env, err := NewEnv(Params{
 		EnvDef: &def.InputEnv{
-			Name:      envName,
-			Templates: []*def.Tpl{{Tpl: tplName}},
+			Name: envName,
+			Templates: []*def.Tpl{
+				{
+					Tpl: tplName,
+					Parameters: def.TplParams{
+						"number": 42,
+					},
+				},
+			},
 			Options: &def.EnvOptions{
 				DisableDiscovery: true,
 			},

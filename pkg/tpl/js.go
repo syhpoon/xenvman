@@ -45,6 +45,15 @@ func libType() map[string]interface{} {
 	}
 }
 
+func ensureNumber(name string, val interface{}) {
+	switch val.(type) {
+	case float32, float64:
+	case int, int8, int16, int32, int64:
+	default:
+		panic(errors.Errorf("%s: Expected number but got %T", name, val))
+	}
+}
+
 func jsIsArray(obj otto.Value) bool {
 	return obj.Class() == "Array"
 }
@@ -82,11 +91,7 @@ func jsEnsureNumber(name string, obj otto.Value) {
 		panic(errors.Errorf("%s: Error exporting js value: %s", name, err))
 	}
 
-	_, ok := v.(float64)
-
-	if !ok {
-		panic(errors.Errorf("%s: Expected number but got %T", name, v))
-	}
+	ensureNumber(name, v)
 }
 
 func jsEnsureListOfStrings(name string, obj otto.Value) {
@@ -134,10 +139,7 @@ func jsEnsureListOfNumbers(name string, obj otto.Value) {
 	}
 
 	for _, val := range arr {
-		if _, ok := val.(float64); !ok {
-			panic(errors.Errorf("%s: Found non-int array element: %T",
-				name, val))
-		}
+		ensureNumber(name, val)
 	}
 }
 
