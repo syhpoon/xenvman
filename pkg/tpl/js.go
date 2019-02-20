@@ -131,15 +131,16 @@ func jsEnsureListOfNumbers(name string, obj otto.Value) {
 		panic(errors.Errorf("%s: Error exporting js value: %s", name, err))
 	}
 
-	arr, ok := v.([]interface{})
-
-	if !ok {
-		panic(errors.Errorf("%s: Expected array of strings but got %T",
+	switch v2 := v.(type) {
+	case []interface{}:
+		for _, val := range v2 {
+			ensureNumber(name, val)
+		}
+	case []int64:
+	case []float64:
+	default:
+		panic(errors.Errorf("%s: Expected array of numbers but got %T",
 			name, v))
-	}
-
-	for _, val := range arr {
-		ensureNumber(name, val)
 	}
 }
 
