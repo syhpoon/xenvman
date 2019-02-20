@@ -1,3 +1,6 @@
+# v2.1.2 (2019-02-19)
+* Fixed a [bug](https://github.com/syhpoon/xenvman/issues/1) with `type.EnsureListOfNumbers` template functions.
+
 # v2.1.1 (2019-02-15)
 
 * Fixed a bug with `type.EnsureNumber` and `type.EnsureListOfNumbers` template
