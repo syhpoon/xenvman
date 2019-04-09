@@ -68,6 +68,8 @@ func (pr *PortRange) NextPort() (Port, error) {
 
 		l, err := net.Listen("tcp", fmt.Sprintf(":%d", pr.next))
 
+		pr.next++
+
 		if err != nil {
 			span++
 
@@ -79,8 +81,6 @@ func (pr *PortRange) NextPort() (Port, error) {
 		}
 
 		span = 0
-
-		pr.next++
 
 		port := l.Addr().(*net.TCPAddr).Port
 		_ = l.Close()
